@@ -50,6 +50,7 @@ Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
 """
 
+
 __author__ = "Christian Palmroos"
 __email__ = "chospa@utu.fi"
 
