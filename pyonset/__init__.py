@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2023-11-16
+@Updated: 2023-11-17
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -1846,19 +1846,21 @@ class Onset(Event):
             # Error bars in x direction:
             x_errors_lower, x_errors_upper,  x_errors_all = get_x_errors(e_min=e_min, e_max=e_max, inverse_betas=inverse_beta, mass_energy=mass_energy)
 
+
+            # Choose the reference index here before calculating the timedeltas for y-errors
+            # self.onset_statistics : {channel_id : [mode, median, 1st_sigma_minus, 1st_sigma_plus, 2nd_sigma_minus, 2nd_sigma_plus]}
+            if reference == "mode":
+                    ref_idx = 0
+            elif reference == "median":
+                ref_idx = 1
+            else:
+                raise ValueError(f"Argument {reference} is an invalid input for the variable 'reference'. Acceptable input values are are 'mode' and 'median'.")
+
             # Get all the y-errors there are in this object's database
             if not isinstance(yerrs, (list, np.ndarray)):
 
                 plus_errs, minus_errs = np.array([]), np.array([])
                 # Loop through all possible, channels, even those that not necessarily show an onset
-                # self.onset_statistics : {channel_id : [mode, median, 1st_sigma_minus, 1st_sigma_plus, 2nd_sigma_minus, 2nd_sigma_plus]}
-                if reference == "mode":
-                    ref_idx = 0
-                elif reference == "median":
-                    ref_idx = 1
-                else:
-                    raise ValueError(f"Argument {reference} is an invalid input for the variable 'reference'. Acceptable input values are are 'mode' and 'median'.")
-
                 for ch in channels:
 
                     try: 
@@ -1878,13 +1880,27 @@ class Onset(Event):
                 # Uneven errorbars need to be shape (2,N), where first row contains the lower errors, the second row contains the upper errors.
                 y_errors_all = np.array([minus_errs, plus_errs])
 
+            # User gave y-errors as an input
             else:
-                # User gave y-errors as input
 
                 # 2 arrays, so asymmetric plus and minus errors
                 if len(yerrs)==2:
 
-                    plus_errs, minus_errs = yerrs[0], yerrs[1]
+                    plus_errs, minus_errs = np.array([]), np.array([])
+
+                    minus_timestamps, plus_timestamps = yerrs[0], yerrs[1]
+
+                    for i, ch in enumerate(channels):
+
+                        try: 
+                            minus_err = self.onset_statistics[ch][ref_idx] - minus_timestamps[i] # the difference of a timestamp and a timedelta is a timedelta
+                            plus_err = plus_timestamps[i] - self.onset_statistics[ch][ref_idx]
+                        except KeyError as e:
+                            plus_err = pd.Timedelta(seconds=1)
+                            minus_err = pd.Timedelta(seconds=1)
+                        
+                        plus_errs = np.append(plus_errs, plus_err)
+                        minus_errs = np.append(minus_errs, minus_err)
 
                     y_errors_all = np.array([plus_errs,minus_errs])
 
@@ -1896,7 +1912,17 @@ class Onset(Event):
 
                 # 1 array -> symmetric errors
                 else:
-                    y_errors = yerrs
+
+                    if not isinstance(yerrs, (pd.Timedelta, datetime.timedelta)):
+                        y_errors = np.array([])  #= yerrs
+
+                        for i, ch in channels:
+                            y_err = yerrs[i] - self.onset_statistics[ch][ref_idx]
+                            y_errors = np.append(y_errors, y_err)
+
+                    else:
+                        y_errors = yerrs
+
                     y_errors_all_secs = [err.seconds for err in y_errors]
 
 
@@ -1910,13 +1936,15 @@ class Onset(Event):
             inverse_beta_corrected = ma.array(inverse_beta_corrected, mask=mask)
             x_errors_all = ma.array(x_errors_all, mask=mask)
 
-            if yerrs:
+            # Errors are asymmetric
+            if len(yerrs)==2:
                 y_errors_plot = ma.array([minus_errs, plus_errs], mask=[mask,mask])
                 y_errors_all_secs = ma.array([minus_errs_secs, plus_errs_secs], mask=[mask,mask])
 
+            # Errors are symmetric
             else:
-                y_errors_all_secs = ma.array(y_errors_all, mask=mask)
-                y_errors_plot = ma.array(time_error, mask=mask)
+                y_errors_all_secs = ma.array(y_errors_all_secs, mask=mask)
+                y_errors_plot = ma.array(y_errors_all, mask=mask)
 
             # Just to have a shared alias for all the y-errors, also in the case there are two instruments
             y_errors_all_plot = y_errors_plot
@@ -1947,7 +1975,6 @@ class Onset(Event):
 
             # Common name to take into account single instrument and two-instrument code blocks
             inverse_beta_all = inverse_beta
-
 
         # Here onward we do the fit, and find the slope and intersection of this fit ->
 
@@ -2802,7 +2829,7 @@ class OnsetStatsArray:
         """
 
         # Check that these are all the same sc / instrument / particle species
-        if len(self.archive) > 1:
+        if len(self.archive) >= 1:
             if onset_object.spacecraft.lower() != self.spacecraft.lower():
                 raise Exception("Only one spacecraft per OnsetStatsArray permitted!")
             if onset_object.sensor.lower() != self.sensor.lower():
@@ -2870,7 +2897,7 @@ class OnsetStatsArray:
         # Plotting 
         fig, ax = plt.subplots(figsize=STANDARD_FIGSIZE)
 
-        # If xlims not manually defined, let them be \pm 5 minutes from the first and last onset of the distribution
+        # If xlims not manually defined, let them be \pm 2 minutes from the first and last onset of the distribution
         if not xlims:
             xlims = (np.nanmin(stats["onset_list"]) - pd.Timedelta(minutes=2), np.nanmax(stats["onset_list"]) + pd.Timedelta(minutes=2))
         ax.set_xlim(xlims)
@@ -3319,7 +3346,7 @@ class OnsetStatsArray:
             raise ValueError(f"Argument {weight_type} is not a valid value for weight_type! It has to be either 'uncertainty' or 'int_time'.")
 
         # Asserting the weights so that w_0 = integration time of final distribution and w_{-1} = 1. 
-        weights = [w for w in range(len(self.archive), 0, -1)]
+        int_weights = [w for w in range(len(self.archive), 0, -1)]
 
         # Collect the confidence intervals and median to their respective arrays
         sigma1_low_bounds = np.array([stats["1-sigma_confidence_interval"][0] for stats in self.archive])
@@ -3331,13 +3358,23 @@ class OnsetStatsArray:
 
         if weight_type == "uncertainty":
 
-            # Instead weighting by the width of 2-sigma uncertainty intervals?
+            # Instead weighting by the width of 2-sigma uncertainty intervals
             sigma2_widths = np.array([(sigma2_upper_bounds[i] - low_bound) for i, low_bound in enumerate(sigma2_low_bounds)])
+
+            # Convert the widths to minutes as floating point numbers
+            sigma2_widths = np.array([width.seconds/60 for width in sigma2_widths])
 
             # Get the indices that would sort uncertainities in ASCENDING order, and then flip the order of the indices
             # and add 1, to give the most weight on the smallest timedelta and a weight of 1 to the largest delta
-            sorted_indices = np.argsort(sigma2_widths)
-            weights = np.flip(sorted_indices+1)
+            # sorted_indices = np.argsort(sigma2_widths)
+            # weights = np.flip(sorted_indices+1)
+
+            # The weights here are the inverse's of the widths of the 2-sigma uncertainty intervals
+            weights = np.array([1/width for width in sigma2_widths])
+
+        # Using integration time as weighting
+        else:
+            weights = int_weights
 
         # Weighting the confidence intervals and the median
         self.w_sigma1_low_bound = weight_timestamp(weights=weights, timestamps=sigma1_low_bounds)
@@ -3383,27 +3420,22 @@ def weight_timestamp(weights, timestamps):
 
     Parameters:
     -----------
-    weight : {list of ints}
+    weight : {list of weights}
     timestamp : {list of pd.datetimes}
     """
 
-    for i, ts in enumerate(timestamps):
+    # First make sure timestamps come numpy datetime64 format (in nanoseconds)
+    timestamps = np.array([t.asm8 for t in timestamps])
+    
+    # Calculate weighted_avg. Use np.ndarray.view() to convert datetime values to floating point numbers so that
+    # math can be done with them. The timestamp that this yields will also be a floating point number
+    wavg_ns = np.average(timestamps.view(dtype="float64"), weights=weights)
 
-        # init the series that will do the averaging calculation for the timestamps
-        if i == 0:
-            weight_times_timestamps = pd.Series(data=[timestamps[i]]*weights[i])
+    # Convert the float to a numpy timestamp
+    wavg_timestamp = np.array(wavg_ns).view(dtype="datetime64[ns]")
 
-        else:
-            new_series = pd.Series(data=[ts]*weights[i])
-
-            weight_times_timestamps = pd.concat([weight_times_timestamps, new_series], ignore_index=True)
-        
-    # At this point weight_times_timestamps is a series of n*ts[0] + (n-1)*ts[1] + (n-2)*ts[2] + ... + 1*ts[-1]
-    # A weighted average of the timestamps is just a mean of this series
-    weighted_timestamp = weight_times_timestamps.mean()
-
-    # Return the concatenation of the lower and upper bounds
-    return weighted_timestamp
+    # Return the weighted average timestamp (final conversion to pandas datetime is perhaps not necessary, but let's be sure)
+    return pd.to_datetime(wavg_timestamp)
 
 
 def subwindows(Window, window_placement="equal", fraction:float = 0.2):
@@ -3469,43 +3501,6 @@ def subwindows(Window, window_placement="equal", fraction:float = 0.2):
         windowlist.append(new_window)
 
     return windowlist
-
-
-def estimate_uncertainty(data_resolution, onset_std):
-    """
-    Calculates the estimated uncertainty of an onset time based on the resolution of the time series data,
-    and the standard deviation of the onset distribution.
-    
-    Parameters:
-    ----------
-    data_resolution : str
-                        Pandas-compatible time string representing the time resolution of the time series data
-    onset_std : pandas._libs.tslibs.timedeltas.Timedelta
-                        A pandas-timedelta object that represents the standard deviation of the onset distribution
-    Returns:
-    ---------
-    true_uncertainty : pandas._libs.tslibs.timedeltas.Timedelta
-                        The sum of data resolution and the std of onset distribution.
-    """
-
-    if data_resolution[-1:] == 's':
-        reso_minutes = 0
-        reso_seconds = int(data_resolution[:-1])
-    if data_resolution[-3:] == "min":
-        reso_minutes = int(data_resolution[:-3])
-        reso_seconds = 0
-
-    # The uncertainty has to be at least the time resolution of the data
-    minimum_uncertainty = pd.Timedelta(minutes=reso_minutes, seconds=reso_seconds)
-
-    # The true uncertainty in this function is defined as the sum of time resolution 
-    # and the standard deviation of the onset distribution
-    true_uncertainty = minimum_uncertainty + onset_std
-    
-    # Another approach could maybe be that the true uncertainty is the max of time resolution and onset_std
-    # true_uncertainty = np.nanmax(minimum_uncertainty, onset_std)
-
-    return true_uncertainty
 
 
 def get_x_errors(e_min, e_max, inverse_betas, mass_energy:float):
