@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2023-11-17
+@Updated: 2023-11-20
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -66,6 +66,7 @@ CURRENT_PATH = os.getcwd()
 STANDARD_FIGSIZE = (21,9)
 VDA_FIGSIZE = (16,9)
 C_SQUARED = const.c.value*const.c.value
+BACKGROUND_ALPHA = 0.15 # used for the background shading when plotting
 
 # We recommend to have at least this many data points in the background for good statistics
 MIN_RECOMMENDED_POINTS = 100
@@ -633,7 +634,7 @@ class Onset(Event):
 
 
     def statistic_onset(self, channels, Window, viewing:str, resample:str=None, erase:tuple=None, sample_size:float=None, cusum_minutes:int=None, 
-                        small_windows:str=None, offset_origins:bool=True, detrend=True, sigma_multiplier=2):
+                        small_windows:str=None, offset_origins:bool=True, detrend=True, sigma_multiplier=2, random_seed=None):
         """
         This method looks at a particular averaging window with length <windowlen>, and draws from it
         points <n_bstraps> times. From these <n_bstraps> different distributions of measurements, it 
@@ -672,6 +673,8 @@ class Onset(Event):
                     apply to 1min data.
         sigma_multiplier : {int, float} default 2
                     The multiplier for the $\mu_{d}$ variable in the CUSUM method.
+        random_seed : {int}, optional
+                    Pass down a seed for the random generator that picks samples from the background window.
 
         Returns:
         -----------
@@ -835,7 +838,7 @@ class Onset(Event):
                     chosen_series = list_of_series[random_choices[j]]
 
                     # Calculate background parameters (mean and std), and append them to their respective arrays
-                    mu, sigma = sample_mean_and_std(window.start, window.end, chosen_series, sample_size=sample_size, prints_warning=prints_warning)
+                    mu, sigma = sample_mean_and_std(window.start, window.end, chosen_series, sample_size=sample_size, prints_warning=prints_warning, use_seed=random_seed)
                     mus = np.append(mus, mu)
                     sigmas = np.append(sigmas,sigma)
 
@@ -1603,7 +1606,6 @@ class Onset(Event):
                 try:
                     onset_times = np.append(onset_times,self.onset_statistics[ch][0])
                 except KeyError as e:
-                    print(e)
                     onset_times = np.append(onset_times,pd.NaT)
 
         # Here check if two lists of onset times are being performed VDA upon
@@ -1641,7 +1643,6 @@ class Onset(Event):
                     try:
                         onset_times1 = np.append(onset_times1,Onset.onset_statistics[ch][0])
                     except KeyError as e:
-                        print(e)
                         onset_times1 = np.append(onset_times1,pd.NaT)
 
 
@@ -1673,20 +1674,20 @@ class Onset(Event):
 
             x_errors_all = np.concatenate((x_errors, x_errors1))
 
+            # Loop through all possible, channels, even those that not necessarily show an onset
+            # Remember:  self.onset_statistics : {channel_id : [mode, median, 1st_sigma_minus, 1st_sigma_plus, 2nd_sigma_minus, 2nd_sigma_plus]}
+            if reference == "mode":
+                ref_idx = 0
+            elif reference == "median":
+                ref_idx = 1
+            else:
+                raise ValueError(f"Argument {reference} is an invalid input for the variable 'reference'. Acceptable input values are are 'mode' and 'median'.")
+
             # Get all the y-errors there are in this object's database
             if not isinstance(yerrs, (list,np.ndarray)):
 
                 plus_errs, minus_errs = np.array([]), np.array([])
                 plus_errs1, minus_errs1 = np.array([]), np.array([])
-
-                # Loop through all possible, channels, even those that not necessarily show an onset
-                # Remember:  self.onset_statistics : {channel_id : [mode, median, 1st_sigma_minus, 1st_sigma_plus, 2nd_sigma_minus, 2nd_sigma_plus]}
-                if reference == "mode":
-                    ref_idx = 0
-                elif reference == "median":
-                    ref_idx = 1
-                else:
-                    raise ValueError(f"Argument {reference} is an invalid input for the variable 'reference'. Acceptable input values are are 'mode' and 'median'.")
 
                 for ch in channels:
 
@@ -1772,7 +1773,7 @@ class Onset(Event):
             inverse_beta_corrected = ma.array(inverse_beta_corrected, mask=mask)
             x_errors_all = ma.array(x_errors_all, mask=mask)
 
-            if yerrs:
+            if len(y_errors_all)==2:
                 y_errors_plot = ma.array([minus_errs, plus_errs], mask=[np.isnan(date_in_sec),np.isnan(date_in_sec)])
                 y_errors1_plot = ma.array([minus_errs1, plus_errs1], mask=[np.isnan(date_in_sec1),np.isnan(date_in_sec1)])
                 y_errors_all_plot = ma.array([minus_errs_all, plus_errs_all], mask=[mask,mask])
@@ -1913,17 +1914,18 @@ class Onset(Event):
                 # 1 array -> symmetric errors
                 else:
 
-                    if not isinstance(yerrs, (pd.Timedelta, datetime.timedelta)):
-                        y_errors = np.array([])  #= yerrs
+                    # Check the first entry of yerrs. If it's not a timedelta, then it's the reach of the error
+                    if not isinstance(yerrs[0], (pd.Timedelta, datetime.timedelta)):
+                        y_errors_all = np.array([])  #= yerrs
 
                         for i, ch in channels:
                             y_err = yerrs[i] - self.onset_statistics[ch][ref_idx]
-                            y_errors = np.append(y_errors, y_err)
+                            y_errors_all = np.append(y_errors, y_err)
 
                     else:
-                        y_errors = yerrs
+                        y_errors_all = yerrs
 
-                    y_errors_all_secs = [err.seconds for err in y_errors]
+                    y_errors_all_secs = [err.seconds for err in y_errors_all]
 
 
             # Numpy masks work so that True values get masked as invalid, while False remains unaltered
@@ -1937,7 +1939,7 @@ class Onset(Event):
             x_errors_all = ma.array(x_errors_all, mask=mask)
 
             # Errors are asymmetric
-            if len(yerrs)==2:
+            if len(y_errors_all)==2:
                 y_errors_plot = ma.array([minus_errs, plus_errs], mask=[mask,mask])
                 y_errors_all_secs = ma.array([minus_errs_secs, plus_errs_secs], mask=[mask,mask])
 
@@ -2160,8 +2162,8 @@ class Onset(Event):
 
 
     def automatic_onset_stats(self, channels, background, viewing, erase, cusum_minutes:int=None, sample_size:float=0.5, 
-                              small_windows=None, stop=None, weights=None, limit_computation_time=True, sigma=2, 
-                              detrend:bool=True, prints:bool=False,
+                              small_windows=None, stop=None, weights="uncertainty", limit_computation_time=True, sigma=2, 
+                              detrend:bool=True, prints:bool=False, random_seed=None,
                               limit_averaging:str=None, fail_avg_stop:int=None):
         """
         Automates the uncertainty estimation for a single channel provided by Poisson-CUSUM-bootstrap hybrid method
@@ -2187,7 +2189,7 @@ class Onset(Event):
                     A pandas-compatible time string that decides on how long to continue averaging data while making onset 
                     distributions. If None, data will be averaged up to the 1-sigma uncertainty of whatever the native data resolution
                     produces.
-        weights : {str} default None
+        weights : {str} optional
                     Choose weights for calculating the mean uncertainty. 'int_time' will weight uncertainties by their individual
                     integrating times, while 'uncertainty' will weight small uncertainties more and large less.
         limit_computation_time : {bool}, default True
@@ -2199,6 +2201,8 @@ class Onset(Event):
                     time by half of the data time resolution.
         prints : {bool}, optional
                     Switch to print information about which channels is being analyzed and what's its 1-sigma uncertainty.
+        random_seed : {int}, optional
+                    Pass down a random seed for the generator that picks the samplses from the background.
         limit_averaging : {str}, optional
                     Pandas-compatible time string. Limits the averaging to a certain time. Leave to None to not limit averaging. 
         fail_avg_stop : {int}, optional
@@ -2265,7 +2269,7 @@ class Onset(Event):
         # Run statistic_onset() once to get the confidence intervals for the bare not resampled data
         first_run_stats, _ = self.statistic_onset(channels=channels, Window=background, viewing=viewing, 
                                             sample_size=sample_size, resample=first_resample, erase=erase, small_windows=small_windows,
-                                            cusum_minutes=cusum_minutes, detrend=False, sigma_multiplier=sigma)
+                                            cusum_minutes=cusum_minutes, detrend=False, sigma_multiplier=sigma, random_seed=random_seed)
 
         # For the first iteration initialize the OnsetStatsArray object, which can plot the integration time plot
         # This step has to be done after running statistic_onset() the first time, because otherwise "self.bootstrap_onset_statistics"
@@ -2333,7 +2337,7 @@ class Onset(Event):
 
                 next_run_stats, _ = self.statistic_onset(channels=channels, Window=background, viewing=viewing, 
                                             sample_size=sample_size, resample=f"{i}min", erase=erase, small_windows=small_windows,
-                                            cusum_minutes=cusum_minutes, sigma_multiplier=sigma, detrend=True)
+                                            cusum_minutes=cusum_minutes, sigma_multiplier=sigma, detrend=True, random_seed=random_seed)
                 next_run_uncertainty = next_run_stats["1-sigma_confidence_interval"][1] - next_run_stats["1-sigma_confidence_interval"][0]
                 next_run_uncertainty_mins = (next_run_stats["1-sigma_confidence_interval"][1] - next_run_stats["1-sigma_confidence_interval"][0]).seconds // 60
 
@@ -2374,16 +2378,15 @@ class Onset(Event):
                     break
 
                 else:
-                    if i==5:
+                    # If we tried everything and still no onset -> NaT and exit
+                    if i==try_avg_stop:
                         if prints:
                             print(f"No onsets found with {i} min time averaging. Terminating.")
+                            stats_arr.calculate_weighted_uncertainty("int_time")
+                            return stats_arr
                     else:
                         pass
-
-            # If we tried everything and still no onset -> NaT and exit
-            if i==5:
-                stats_arr.calculate_weighted_uncertainty("int_time")
-                return stats_arr
+        
 
         # Here if int_times gets too long, coarsen it up a little from 10 minutes onward
         # Logic of this selection: preserve an element of int_times if it's at most 10 OR if it's divisible by 5
@@ -2405,7 +2408,7 @@ class Onset(Event):
 
             _, _ = self.statistic_onset(channels=channels, Window=background, viewing=viewing, 
                                             sample_size=sample_size, resample=str(resample), erase=erase, small_windows=small_windows,
-                                            cusum_minutes=cusum_minutes, sigma_multiplier=sigma, detrend=detrend)
+                                            cusum_minutes=cusum_minutes, sigma_multiplier=sigma, detrend=detrend, random_seed=random_seed)
 
             stats_arr.add(self)
 
@@ -2418,7 +2421,7 @@ class Onset(Event):
 
     def channelwise_onset_statistics(self, background, viewing, channels=None, erase:(tuple,list)=None, cusum_minutes:int=30, sample_size:float=0.50, 
                                      weights:str="uncertainty", detrend=True, limit_computation_time=True, average_to=None, prints=False, 
-                                     limit_averaging=None, fail_avg_stop:int=None):
+                                     limit_averaging=None, fail_avg_stop:int=None, random_seed:int=None):
         """
         Wrapper method for automatic_onset_stats(), that completes full onset and uncertainty analysis for a single channel.
         Does a complete onset uncertainty analysis on, by default all, the energy channels for the given instrument.
@@ -2446,8 +2449,8 @@ class Onset(Event):
                     Switch to apply detrending on the onset time distributions.
         limit_computation_time : {bool}, optional
                     lorem pipsum
-        average_upto : {str}, optional
-                    Tells the method to explicitly average every channel up to a specific time resolution, disregarding the
+        average_to : {str}, optional
+                    Explicitly tells the method to average every channel up to a specific time resolution, disregarding the
                     recommendation got from 1-sigma width of the native data. If both 'average_to' and 'limit_averaging' are
                     given as an input, 'limit_averaging' will take precedence over 'average_to'.
         prints : {bool}
@@ -2457,11 +2460,14 @@ class Onset(Event):
         fail_avg_stop : {int}, optional
                     If absolutely no onset is found in the native time resolution, how far should the method average the data to
                     try and find onset times? Default is up to 5 minutes.
+        random_seed : {int}, optional
+                    Passes down a seed for the random generator that picks the samplses from the background window.
 
         Returns:
         ----------
         uncertainty_stats_by_channel : {np.ndarray(OnsetStatsArray)}
-                    lorem ipsum+
+                    A numpy array of OnsetStatsArray objects, each of which encapsulates statistics of the onset wime in each of the channels
+                    that the method was run over. 
         """
 
         # Initialize the array which will store all the uncertaintystats objects
@@ -2475,14 +2481,8 @@ class Onset(Event):
         else:
             raise TypeError(f"{type(channels)} is and incorrect type of argument 'channels'! It should be None, str=='all', tuple, list or range.")
 
-        # Include a check on the length of the background in relation to the absolute number of data points taken by a 
-        # random sample. 
-        bg_window_length = background.end - background.start
-        minutes_in_background = int(bg_window_length.seconds/60)
-
-        # We recommend a maximum reso such that there are at least {MIN_RECOMMENDED_POINTS} data points to pick from
-        max_reso = int(minutes_in_background/MIN_RECOMMENDED_POINTS)
-        print(f"Your chosen background is {minutes_in_background} minutes long. To have at least {MIN_RECOMMENDED_POINTS} data points to choose from,\nit is recommended that you either limit averaging up to {max_reso} minutes or enlarge the background window.")
+        if prints:
+            background.print_max_recommended_reso()
 
         # Loop through all the channels and save the onset statistics to objects that will be stored in the array initialized in the start
         for channel in all_channels:
@@ -2494,7 +2494,8 @@ class Onset(Event):
             onset_uncertainty_stats = self.automatic_onset_stats(channels=channel, background=background, viewing=viewing, erase=erase,
                                                                 stop=average_to, cusum_minutes=cusum_minutes, sample_size=sample_size, 
                                                                 weights=weights, detrend=detrend, limit_computation_time=limit_computation_time,
-                                                                prints=prints, limit_averaging=limit_averaging, fail_avg_stop=fail_avg_stop)
+                                                                prints=prints, limit_averaging=limit_averaging, fail_avg_stop=fail_avg_stop,
+                                                                random_seed=random_seed)
 
             # Add statistics to the array that holds statistics related to each individual channel
             uncertainty_stats_by_channel = np.append(uncertainty_stats_by_channel, onset_uncertainty_stats)
@@ -2669,10 +2670,10 @@ class Onset(Event):
         if isinstance(percentiles[0],(tuple,list)):
             confidence_intervals = []
             for pair in percentiles:
-                conf_interval = pd.to_datetime(np.percentile(onset_list,pair))
+                conf_interval = pd.to_datetime(np.nanpercentile(onset_list,pair))
                 confidence_intervals.append(conf_interval)
         else:
-            confidence_intervals = pd.to_datetime(np.percentile(onset_list,percentiles))
+            confidence_intervals = pd.to_datetime(np.nanpercentile(onset_list,percentiles))
 
         # Finally check that the percentiles make sense (in that they are not less than the native data resolution of the instrument)
         time_reso = self.get_minimum_cadence()
@@ -2719,10 +2720,24 @@ class BootstrapWindow:
         ax : {plt.Axes}
                 The axes of the figure.
         """
-        BACKGROUND_ALPHA = 0.15
 
         ax.axvspan(xmin=self.start, xmax=self.end,
                         color="#e41a1c", label="Background", alpha=BACKGROUND_ALPHA)
+
+    def print_max_recommended_reso(self):
+        f"""
+        Prints out the maximum recommended resolution that the time series should be averaged to in order to still have
+        at least {MIN_RECOMMENDED_POINTS} data points inside the background window.
+        """
+
+        # Include a check on the length of the background in relation to the absolute number of data points taken by a 
+        # random sample. 
+        bg_window_length = self.end - self.start
+        minutes_in_background = int(bg_window_length.seconds/60)
+
+        # We recommend a maximum reso such that there are at least {MIN_RECOMMENDED_POINTS} data points to pick from
+        max_reso = int(minutes_in_background/MIN_RECOMMENDED_POINTS)
+        print(f"Your chosen background is {minutes_in_background} minutes long. To have at least {MIN_RECOMMENDED_POINTS} data points to choose from,\nit is recommended that you either limit averaging up to {max_reso} minutes or enlarge the background window.")
 
 
     def move_window(self, hours=0, minutes=0):
@@ -3364,17 +3379,12 @@ class OnsetStatsArray:
             # Convert the widths to minutes as floating point numbers
             sigma2_widths = np.array([width.seconds/60 for width in sigma2_widths])
 
-            # Get the indices that would sort uncertainities in ASCENDING order, and then flip the order of the indices
-            # and add 1, to give the most weight on the smallest timedelta and a weight of 1 to the largest delta
-            # sorted_indices = np.argsort(sigma2_widths)
-            # weights = np.flip(sorted_indices+1)
-
             # The weights here are the inverse's of the widths of the 2-sigma uncertainty intervals
             weights = np.array([1/width for width in sigma2_widths])
 
         # Using integration time as weighting
         else:
-            weights = int_weights
+            weights = np.array(int_weights)
 
         # Weighting the confidence intervals and the median
         self.w_sigma1_low_bound = weight_timestamp(weights=weights, timestamps=sigma1_low_bounds)
@@ -3424,12 +3434,20 @@ def weight_timestamp(weights, timestamps):
     timestamp : {list of pd.datetimes}
     """
 
+    # It could happen that there is only one timestamp and that's it's a NaT. In this case numpy will falsely
+    # average the NaT to 1970-01-01 00:00, so check it here to avert this.
+    if len(timestamps)==1 and isinstance(timestamps[0], pd._libs.tslibs.nattype.NaTType):
+        return pd.NaT
+
     # First make sure timestamps come numpy datetime64 format (in nanoseconds)
     timestamps = np.array([t.asm8 for t in timestamps])
-    
+
+    # Mask the weights and timestamps that contain nans/NaTs with these indices
+    mask = ~np.isnan(timestamps)
+
     # Calculate weighted_avg. Use np.ndarray.view() to convert datetime values to floating point numbers so that
     # math can be done with them. The timestamp that this yields will also be a floating point number
-    wavg_ns = np.average(timestamps.view(dtype="float64"), weights=weights)
+    wavg_ns = np.average(timestamps[mask].view(dtype="float64"), weights=weights[mask])
 
     # Convert the float to a numpy timestamp
     wavg_timestamp = np.array(wavg_ns).view(dtype="datetime64[ns]")
@@ -3669,7 +3687,7 @@ def datetime_to_sec(onset_times):
     return dates_in_sec
 
 
-def sample_mean_and_std(start, end, flux_series, sample_size=None, prints_warning=True):
+def sample_mean_and_std(start, end, flux_series, sample_size=None, prints_warning=True, use_seed=None):
     """
     Calculates the mean and standard deviation of the background period by
     taking a random sample of the background window of size sample_size * background_window.
@@ -3687,6 +3705,8 @@ def sample_mean_and_std(start, end, flux_series, sample_size=None, prints_warnin
             of mean and std. The sample is a random sample.
     prints_warning: bool, default True
             The function prints a warning if the sample size is small (data points < 100)
+    use_seed : {int}, optional
+            Uses a seed to replicate the 'random' process.
 
     Returns:
     --------
@@ -3711,10 +3731,18 @@ def sample_mean_and_std(start, end, flux_series, sample_size=None, prints_warnin
             sample_size = int(sample_size * len(background))
             if len(background) < 100 and prints_warning:
                 print(f"Warning, random sample is only {sample_size} data points!")
-        
+
+    # If seed was provided, set it before taking the random sample
+    if use_seed:
+        np.random.seed(use_seed)
 
     # A random sample of all the background data points.
     sample = np.random.choice(background, replace=False, size=sample_size)
+
+    # Reset the random generator seed if one was given as an input, to not mess up other potential random
+    # processes later.
+    if use_seed:
+        np.random.seed()
 
     # Calculate mean and std of the chosen sample of data points
     mean = np.nanmean(sample)
