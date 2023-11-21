@@ -916,7 +916,7 @@ class Onset(Event):
             most_common_val = (unique_onsets[-1,0], unique_onsets[-1,1])
 
             # The median onset is the middlemost onset in the distribution
-            median_onset =  onset_list[len(onset_list)//2]
+            median_onset =  datetime_nanmedian(onset_list)
 
             # Also calculate 1-sigma and 2-sigma confidence intervals for the onset distribution
             confidence_intervals = self.get_distribution_percentiles(onset_list=onset_list, percentiles=[(15.89,84.1), (2.3,97.7)])
@@ -2705,6 +2705,8 @@ class BootstrapWindow:
     def __repr__(self):
         return self.attrs()
 
+    def __len__(self):
+        return int((self.end - self.start).total_seconds()//60)
 
     def attrs(self, key=None):
 
@@ -2732,10 +2734,7 @@ class BootstrapWindow:
         at least {MIN_RECOMMENDED_POINTS} data points inside the background window.
         """
 
-        # Include a check on the length of the background in relation to the absolute number of data points taken by a 
-        # random sample. 
-        bg_window_length = self.end - self.start
-        minutes_in_background = int(bg_window_length.seconds/60)
+        minutes_in_background = len(self)
 
         # We recommend a maximum reso such that there are at least {MIN_RECOMMENDED_POINTS} data points to pick from
         max_reso = int(minutes_in_background/MIN_RECOMMENDED_POINTS)
@@ -3384,6 +3383,9 @@ class OnsetStatsArray:
             # The weights here are the inverse's of the widths of the 2-sigma uncertainty intervals
             weights = np.array([1/width for width in sigma2_widths])
 
+            if len(weights)==0:
+                weights = np.array(int_weights)
+
         # Using integration time as weighting
         else:
             weights = np.array(int_weights)
@@ -3687,6 +3689,27 @@ def datetime_to_sec(onset_times):
         dates_in_sec.append((date.to_pydatetime() - datetime.datetime(1970,1,1,0,0,0)).total_seconds())
 
     return dates_in_sec
+
+
+def datetime_nanmedian(timestamps):
+    """
+    Finds the median datetime, ignoring NaTs.
+
+    timestamps : {array-like}
+                    An array or list of pandas-compatible timestamps.
+    """
+
+    if not isinstance(timestamps,np.ndarray):
+        timestamps = np.array(timestamps)
+
+    # Mask away NaTs. pd.isnull() also applies on NaTs
+    timestamps_masked = timestamps[~pd.isnull(timestamps)]
+
+    # Sort the array
+    timestamps_masked.sort()
+    
+    # Pick the middlemost value to return
+    return timestamps_masked[len(timestamps_masked)//2]
 
 
 def sample_mean_and_std(start, end, flux_series, sample_size=None, prints_warning=True, use_seed=None):
