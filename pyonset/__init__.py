@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2023-11-20
+@Updated: 2023-11-21
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -2478,6 +2478,8 @@ class Onset(Event):
             all_channels = self.get_all_channels()
         elif isinstance(channels, (tuple, list, range)):
             all_channels = channels
+        elif isinstance(channels, (int, np.int64)):
+            all_channels = [channels]
         else:
             raise TypeError(f"{type(channels)} is and incorrect type of argument 'channels'! It should be None, str=='all', tuple, list or range.")
 
