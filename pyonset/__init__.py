@@ -3114,6 +3114,8 @@ class OnsetStatsArray:
         most_likely_onset = self.archive[index]["most_likely_onset"]
         onsets = self.archive[index]["unique_onsets"]
 
+        figdate = get_figdate(onsets)
+
         # Create a colormap for different shades of red for the onsets. Create the map with the amount of onsets+2, so that
         # the first and the final color are left unused. They are basically white and a very very dark red.
         cmap = plt.get_cmap("Reds", len(onsets)+2)
@@ -3142,7 +3144,7 @@ class OnsetStatsArray:
 
         ax.set_yscale("log")
         ax.set_ylabel("Intensity [1/(cm^2 sr s MeV)]", fontsize=AXLABEL_FONTSIZE)
-        ax.set_xlabel("Time", fontsize=AXLABEL_FONTSIZE)
+        ax.set_xlabel(f"Time ({figdate})", fontsize=AXLABEL_FONTSIZE)
 
         # The intensity data, kw where dictates where the step happens. "mid" for the middle of the bin
         ax.step(flux_in_plot.index, flux_in_plot.values, where="mid")
@@ -3174,13 +3176,14 @@ class OnsetStatsArray:
         else:
             raise ValueError(f"Argument legend_loc has to be either 'in' or 'out', not {legend_loc}")
         ax.legend(loc=legend_handle, bbox_to_anchor=legend_bbox, prop={"size": 12})
+
+        particle_str = "electrons" if self.species=='e' else "protons" if self.species=='p' else "ions"
         int_time_str = f"{self.integration_times[index]} integration time" if index != 0 else f"{int(self.linked_object.get_minimum_cadence().seconds/60)} min data" if self.linked_object.get_minimum_cadence().seconds>59 else f"{self.linked_object.get_minimum_cadence().seconds} s data"
-        ax.set_title(f"{most_likely_onset[0].date()}\nOnset distribution ({int_time_str})", fontsize=TITLE_FONTSIZE)
+        ax.set_title(f"{self.spacecraft.upper()}/{self.sensor.upper()} ({self.channel_str}) {particle_str}\nOnset distribution ({int_time_str})", fontsize=TITLE_FONTSIZE)
 
         if save:
             if not savepath:
                 savepath = CURRENT_PATH
-            particle_str = "electrons" if self.species=='e' else "protons" if self.species=='p' else "ions"
             plt.savefig(f"{savepath}{os.sep}onset_distribution_{self.spacecraft}_{self.sensor}_{particle_str}.png", transparent=False,
                         facecolor="white", bbox_inches="tight")
 
@@ -3220,6 +3223,8 @@ class OnsetStatsArray:
         onset_median = self.archive[index]["median_onset"]
         onset_mode = self.archive[index]["most_likely_onset"][0]
         onset_mean = self.archive[index]["mean_onset"]
+
+        figdate = onset_mean.date().strftime("%Y-%m-%d")
 
         # This is just for plotting the time series with the chosen resolution
         flux_series = self.list_of_series[index]
@@ -3268,16 +3273,17 @@ class OnsetStatsArray:
         ax.set_ylim(ylim)
         ax.set_yscale("log")
         ax.set_ylabel("Intensity [1/(cm^2 sr s MeV)]", fontsize=AXLABEL_FONTSIZE)
-        ax.set_xlabel("Time", fontsize=AXLABEL_FONTSIZE)
+        ax.set_xlabel(f"Time ({figdate})", fontsize=AXLABEL_FONTSIZE)
 
         ax.legend()
+
+        particle_str = "electrons" if self.species=='e' else "protons" if self.species=='p' else "ions"
         int_time_str = f"{self.integration_times[index]} integration time" if index != 0 else f"{int(self.linked_object.get_minimum_cadence().seconds/60)} min data" if self.linked_object.get_minimum_cadence().seconds>59 else f"{self.linked_object.get_minimum_cadence().seconds} s data"
-        ax.set_title(f"{onset_median.date()}\nOnset statistics ({int_time_str})", fontsize=TITLE_FONTSIZE)
+        ax.set_title(f"{self.spacecraft.upper()}/{self.sensor.upper()} ({self.channel_str}) {particle_str}\nOnset statistics ({int_time_str})", fontsize=TITLE_FONTSIZE)
 
         if save:
             if not savepath:
                 savepath = CURRENT_PATH
-            particle_str = "electrons" if self.species=='e' else "protons" if self.species=='p' else "ions"
             plt.savefig(f"{savepath}{os.sep}onset_statistics_{self.spacecraft}_{self.sensor}_{particle_str}.png", transparent=False,
                         facecolor='white', bbox_inches='tight')
 
@@ -4457,4 +4463,3 @@ def _isnotebook():
 if _isnotebook():
     from IPython.core.display import HTML, display
     display(HTML(data="""<style> div#notebook-container { width: 99%; } div#menubar-container { width: 85%; } div#maintoolbar-container { width: 99%; } </style>"""))
-    
