@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2023-11-21
+@Updated: 2023-11-23
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -67,6 +67,10 @@ STANDARD_FIGSIZE = (21,9)
 VDA_FIGSIZE = (16,9)
 C_SQUARED = const.c.value*const.c.value
 BACKGROUND_ALPHA = 0.15 # used for the background shading when plotting
+TITLE_FONTSIZE = 28
+AXLABEL_FONTSIZE = 24
+TICK_LABELSIZE = 19
+TXTBOX_SIZE = 17
 
 # We recommend to have at least this many data points in the background for good statistics
 MIN_RECOMMENDED_POINTS = 100
@@ -402,7 +406,7 @@ class Onset(Event):
                         label="onset time")
 
             # Textbox indicating onset time
-            plabel = AnchoredText(f" {str(onset_stats[-1])[:19]} ", prop=dict(size=13), frameon=True, loc=(4) )
+            plabel = AnchoredText(f" {str(onset_stats[-1])[:19]} ", prop=dict(size=TXTBOX_SIZE), frameon=True, loc=(4) )
             plabel.patch.set_boxstyle("round, pad=0., rounding_size=0.2")
             plabel.patch.set_linewidth(2.0)
             ax.add_artist(plabel)
@@ -435,16 +439,13 @@ class Onset(Event):
                 ax.axvspan(xmin=self.conf2_low, xmax=self.conf2_high, color="blue", alpha=0.3, label=r"2~\sigma")
 
 
-        ax.set_xlabel("Time", fontsize=20)
-        ax.set_ylabel(f"Intensity [1/(cm^2 sr s MeV)]", fontsize=20)
-
-        # Tickmarks, their size etc...
-        ax.tick_params(which='major', length=6, width=2, labelsize=17)
-        ax.tick_params(which='minor', length=5, width=1.4)
+        ax.set_xlabel("Time", fontsize=AXLABEL_FONTSIZE)
+        ax.set_ylabel(f"Intensity [1/(cm^2 sr s MeV)]", fontsize=AXLABEL_FONTSIZE)
 
         # Date tick locator and formatter
         ax.xaxis_date()
-        #ax.xaxis.set_major_locator(ticker.AutoLocator()) # ticker.MaxNLocator(9)
+        set_standard_ticks(ax=ax)
+
         utc_dt_format1 = DateFormatter('%H:%M \n%Y-%m-%d')
         ax.xaxis.set_major_formatter(utc_dt_format1)
 
@@ -462,12 +463,12 @@ class Onset(Event):
             time_reso_str = self.get_time_resolution_str(resample=resample)
 
             if viewing:
-                ax.set_title(f"{spacecraft}/{self.sensor.upper()}({viewing}) {en_channel_string} {s_identifier}\n{time_reso_str}")
+                ax.set_title(f"{spacecraft}/{self.sensor.upper()}({viewing}) {en_channel_string} {s_identifier}\n{time_reso_str}", fontsize=TITLE_FONTSIZE)
             else:
-                ax.set_title(f"{spacecraft}/{self.sensor.upper()} {en_channel_string} {s_identifier}\n{time_reso_str}")
+                ax.set_title(f"{spacecraft}/{self.sensor.upper()} {en_channel_string} {s_identifier}\n{time_reso_str}", fontsize=TITLE_FONTSIZE)
 
         else:
-            ax.set_title(title)
+            ax.set_title(title, fontsize=TITLE_FONTSIZE)
 
         if diagnostics:
             ax.legend(loc="best")
@@ -607,13 +608,13 @@ class Onset(Event):
             if viewing:
                 ax.set_title(f"{self.spacecraft.upper()}/{self.sensor.upper()} {s_identifier}\n"
                         f"{resample} averaging, viewing: "
-                        f"{viewing.upper()}")
+                        f"{viewing.upper()}", fontsize=TITLE_FONTSIZE)
             else:
                 ax.set_title(f"{self.spacecraft.upper()}/{self.sensor.upper()} {s_identifier}\n"
-                        f"{resample} averaging")
+                        f"{resample} averaging", fontsize=TITLE_FONTSIZE)
         
         else:
-            ax.set_title(title)
+            ax.set_title(title, fontsize=TITLE_FONTSIZE)
 
         if save:
             if savepath is None:
@@ -692,6 +693,8 @@ class Onset(Event):
             self.last_used_channel = channels
             channels = [channels]
 
+        self.current_channel_id = channels[0]
+
         # Do not search for onset earlier than this point
         big_window_end = Window.end
 
@@ -701,7 +704,7 @@ class Onset(Event):
 
         # Choose the right intensity time series according to channel and viewing direction.
         # Also remember which channel was examined most recently.
-        flux_series, self.recently_examined_channel = self.choose_flux_series(channels, viewing)
+        flux_series, self.recently_examined_channel_str = self.choose_flux_series(channels, viewing)
 
         # By default there will be a list containing timeseries indices of varying origins of offset
         if offset_origins and resample:
@@ -980,6 +983,8 @@ class Onset(Event):
         if not xlim:
             xlim = (flux_series.index[0], flux_series.index[-1])
         ax.set_xlim(xlim)
+
+        set_standard_ticks(ax=ax)
         ax.xaxis_date()
         ax.xaxis.set_major_locator(ticker.AutoLocator())
         utc_dt_format1 = DateFormatter('%H:%M \n%m-%d')
@@ -1008,7 +1013,7 @@ class Onset(Event):
 
         # Legend and title for the figure
         ax.legend(loc=10, bbox_to_anchor=(1.0, 0.95), prop={'size': 12})
-        ax.set_title("Onset distribution")
+        ax.set_title("Onset distribution", fontsize=TITLE_FONTSIZE)
 
         plt.show()
 
@@ -1061,8 +1066,8 @@ class Onset(Event):
 
         # Figure settings
         ax.set_yscale("log")
-        ax.set_ylabel("Intensity")
-        ax.set_xlabel("Time")
+        ax.set_ylabel("Intensity", fontsize=AXLABEL_FONTSIZE)
+        ax.set_xlabel("Time", fontsize=AXLABEL_FONTSIZE)
 
         ylim = set_fig_ylimits(ax=ax, flux_series=flux, ylim=ylim)
 
@@ -1070,6 +1075,8 @@ class Onset(Event):
         if not xlim:
             xlim = (flux.index[0], flux.index[-1])
         ax.set_xlim(xlim)
+
+        set_standard_ticks(ax=ax)
         ax.xaxis_date()
         ax.xaxis.set_major_locator(ticker.AutoLocator())
         utc_dt_format1 = DateFormatter('%H:%M \n%m-%d')
@@ -1381,15 +1388,15 @@ class Onset(Event):
         confidence_intervals_all = [timestamp for sublist in confidence_intervals_all for timestamp in sublist]
 
         # Init the figure
-        fig, ax = plt.subplots(figsize=(13,7))
+        fig, ax = plt.subplots(figsize=STANDARD_FIGSIZE)
 
         rcParams["font.size"] = 20
 
         # Settings for axes
         ax.xaxis_date()
-        ax.set_xlabel("Time")
-        ax.set_ylabel("Cumulative Probability")
-        ax.set_title("Cumulative Distribution Function")
+        ax.set_xlabel("Time", fontsize=AXLABEL_FONTSIZE)
+        ax.set_ylabel("Cumulative Probability", fontsize=AXLABEL_FONTSIZE)
+        ax.set_title("Cumulative Distribution Function", fontsize=TITLE_FONTSIZE)
         hour_minute_format = DateFormatter("%H:%M")
         ax.xaxis.set_major_formatter(hour_minute_format)
 
@@ -2119,29 +2126,29 @@ class Onset(Event):
                     # This is the default for joint VDA, two instruments of the same spacecraft
                     if self.spacecraft == Onset.spacecraft:
                         if self.viewing:
-                            ax.set_title(f"VDA, {spacecraft.upper()} / {instrument.upper()}({self.viewing}) + {Onset.sensor.upper()} {species_title}, {date_of_event}")
+                            ax.set_title(f"VDA, {spacecraft.upper()} / {instrument.upper()}({self.viewing}) + {Onset.sensor.upper()} {species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
                         else:
-                            ax.set_title(f"VDA, {spacecraft.upper()} / {instrument.upper()} + {Onset.sensor.upper()} {species_title}, {date_of_event}")
+                            ax.set_title(f"VDA, {spacecraft.upper()} / {instrument.upper()} + {Onset.sensor.upper()} {species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
 
                     else:
                         # In this case these are two different spacecraft
                         if self.viewing and Onset.viewing:
-                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument.upper()}({self.viewing}) + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}({Onset.viewing})\n{species_title}, {date_of_event}")
+                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument.upper()}({self.viewing}) + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}({Onset.viewing})\n{species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
                         elif self.viewing:
-                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument.upper()}({self.viewing}) + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}\n{species_title}, {date_of_event}")
+                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument.upper()}({self.viewing}) + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}\n{species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
                         elif Onset.viewing:
-                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument.upper()} + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}({Onset.viewing})\n{species_title}, {date_of_event}")
+                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument.upper()} + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}({Onset.viewing})\n{species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
                         else:
-                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument.upper()} + {Onset.spacecraft.upper()}/{Onset.sensor.upper()} {species_title}, {date_of_event}")
+                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument.upper()} + {Onset.spacecraft.upper()}/{Onset.sensor.upper()} {species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
 
                 else:
                     # Single spacecraft, single instrument
                     if self.viewing:
-                        ax.set_title(f"VDA, {spacecraft.upper()} {instrument.upper()}({self.viewing}) {species_title}, {date_of_event}")
+                        ax.set_title(f"VDA, {spacecraft.upper()} {instrument.upper()}({self.viewing}) {species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
                     else:
-                        ax.set_title(f"VDA, {spacecraft.upper()} {instrument.upper()} {species_title}, {date_of_event}")
+                        ax.set_title(f"VDA, {spacecraft.upper()} {instrument.upper()} {species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
             else:
-                ax.set_title(title)
+                ax.set_title(title, fontsize=TITLE_FONTSIZE)
 
             # Saving the figure in "/plots"
             if save:
@@ -2351,10 +2358,10 @@ class Onset(Event):
                         if i < stop_int:
                             int_times = np.array([j for j in range(i,stop_int+1)])
                             if prints:
-                                print(f"Averaging up to {stop} minutes")
+                                print(f"Averaging from {i} minutes up to {stop_int} minutes")
                         else:
                             if prints:
-                                print(f"Stop condition set to {stop_int}, which is less than {i} min. Using only {i} minutes averaged data.")
+                                print(f"Stop condition set to {stop_int} minutes, which is less than {i} min. Using only {i} minutes averaged data.")
                             int_times = np.array([j for j in range(i,i+1)])
 
                     elif i < next_run_uncertainty_mins:
@@ -2573,8 +2580,8 @@ class Onset(Event):
         ax.add_artist(plabel)
 
         # Labels for axes
-        ax.set_xlabel("Time", fontsize=20)
-        ax.set_ylabel(f"Intensity [1/(cm^2 sr s MeV)]", fontsize=20)
+        ax.set_xlabel("Time", fontsize=AXLABEL_FONTSIZE)
+        ax.set_ylabel(f"Intensity [1/(cm^2 sr s MeV)]", fontsize=AXLABEL_FONTSIZE)
 
         # Tickmarks, their size etc...
         ax.tick_params(which='major', length=6, width=2, labelsize=17)
@@ -2799,7 +2806,7 @@ class BootstrapWindow:
 
 class OnsetStatsArray:
     """
-    Contains statistics and uncertainty of a single onset at a particular energy.
+    Contains statistics and uncertainty of a single onset at a particular energy channel.
     """
 
     def __init__(self, onset_object):
@@ -2816,7 +2823,8 @@ class OnsetStatsArray:
         self.spacecraft = onset_object.spacecraft
         self.sensor = onset_object.sensor
         self.species = onset_object.species
-        self.channel_str = onset_object.recently_examined_channel
+        self.channel_str = onset_object.recently_examined_channel_str
+        self.channel_id = onset_object.current_channel_id
 
         # Remember to which onset object this statistics array is linked to
         self.linked_object = onset_object
@@ -2918,10 +2926,9 @@ class OnsetStatsArray:
             xlims = (np.nanmin(stats["onset_list"]) - pd.Timedelta(minutes=2), np.nanmax(stats["onset_list"]) + pd.Timedelta(minutes=2))
         ax.set_xlim(xlims)
 
-        #show percentage on y-axis
+        # Show percentage on y-axis
         yvalues = [m/10 for m in range(0,11)]
         ax.set_yticks(yvalues)
-        #ax.yaxis.set_major_locator(mticker.FixedLocator(yvalues)) #this is to fix the yticks at place, recommended to do before altering labels
         ax.set_yticklabels(['{}'.format(np.round(x, 1)) for x in yvalues])
 
 
@@ -2947,11 +2954,11 @@ class OnsetStatsArray:
         ax.axvspan(xmin=stats["2-sigma_confidence_interval"][0], xmax=stats["2-sigma_confidence_interval"][1], color="blue", alpha=0.15, label="2-sigma", zorder=1)
         ax.axvspan(xmin=stats["1-sigma_confidence_interval"][0], xmax=stats["1-sigma_confidence_interval"][1], color="red", alpha=0.15, label="1-sigma", zorder=1)
 
-        ax.set_xlabel(f"Time\n{stats['mean_onset'].strftime('%Y-%m-%d')}")
-        ax.set_ylabel("PD")
+        ax.set_xlabel(f"Time\n{stats['mean_onset'].strftime('%Y-%m-%d')}", fontsize=AXLABEL_FONTSIZE)
+        ax.set_ylabel("PD", fontsize=AXLABEL_FONTSIZE)
         ax.grid(True)
 
-        ax.set_title(f"Probability density for {self.linked_object.background.bootstraps} onset times")
+        ax.set_title(f"Probability density for {self.linked_object.background.bootstraps} onset times", fontsize=TITLE_FONTSIZE)
         ax.xaxis.set_major_formatter(DateFormatter("%H:%M"))
 
         plt.legend(loc=1, bbox_to_anchor=(1.0, 1.0), fancybox=True, ncol=3, fontsize = 14)
@@ -3008,16 +3015,19 @@ class OnsetStatsArray:
         conf2_highs = [pair[1] for pair in confidence_interval_2sigma]
 
         # For plotting the mean of medians and modes lines (pandas series allows for computing the mean of datetimes)
-        median_series = pd.Series(medians)
-        mode_series = pd.Series(modes)
-        mean_of_medians = median_series.mean()
-        mean_of_modes = mode_series.mean()
+        # median_series = pd.Series(medians)
+        # mode_series = pd.Series(modes)
+        # mean_of_medians = median_series.mean()
+        # mean_of_modes = mode_series.mean()
 
-        # Make the figure longer if there are a lot of ticks on the x-axis
-        fig_len = 13 if len(self.archive) < 30 else 19
+        # these are the real weighted mode and median
+        mean_of_modes = self.linked_object.onset_statistics[self.channel_id][0]
+        mean_of_medians = self.linked_object.onset_statistics[self.channel_id][1]
+
+        figdate = get_figdate(modes)
 
         # Initializing the figure
-        fig, ax = plt.subplots(figsize=(fig_len,7))
+        fig, ax = plt.subplots(figsize=STANDARD_FIGSIZE)
 
         # These integration time strings are transformed to floating point numbers in units of minutes
         xaxis_int_times = [pd.Timedelta(td).seconds/60 for td in self.integration_times]
@@ -3030,30 +3040,37 @@ class OnsetStatsArray:
         # We only want to have integer tickmarks
         ax.set_xticks(range(0,int(xaxis_int_times[-1]+1)))
 
-        ax.scatter(xaxis_int_times, means, s=115, label="mean", zorder=2, color="orange", marker=".")
-        ax.scatter(xaxis_int_times, medians, s=65, label="median", zorder=2, color="red", marker="^")
-        ax.scatter(xaxis_int_times, modes, s=65, label="mode", zorder=2, color="navy", marker="p")
+        ax.scatter(xaxis_int_times, means, s=165, label="mean", zorder=2, color="orange", marker=".")
+        ax.scatter(xaxis_int_times, medians, s=115, label="median", zorder=2, color="red", marker="^")
+        ax.scatter(xaxis_int_times, modes, s=115, label="mode", zorder=2, color="navy", marker="p")
 
-        ax.axhline(y=mean_of_medians, color="red", label=f"Mean of median onsets: ({str(mean_of_medians.time())[:8]})")
-        ax.axhline(y=mean_of_modes, color="navy", label=f"Mean of mode onsets: ({str(mean_of_modes.time())[:8]})")
+        ax.axhline(y=mean_of_medians, color="red", lw=2, label=f"Mean of median onsets: ({str(mean_of_medians.time())[:8]})")
+        ax.axhline(y=mean_of_modes, color="navy", lw=2, label=f"Mean of mode onsets: ({str(mean_of_modes.time())[:8]})")
 
         ax.fill_between(xaxis_int_times, y1=conf1_lows, y2=conf1_highs, facecolor="red", alpha=0.3, zorder=1)
         ax.fill_between(xaxis_int_times, y1=conf2_lows, y2=conf2_highs, facecolor="blue", alpha=0.3, zorder=1)
 
-        ax.set_xlabel("Data integration time [min]")
-        ax.set_ylabel(f"{means[0].date()}\nTime [HH:MM]")
+        # For some reason all the labelsizes appear smaller in the plots created with this method, which is 
+        # why I add some extra size to them.
+
+        ax.set_xlabel("Data integration time [min]", fontsize=AXLABEL_FONTSIZE+6)
+        ax.set_ylabel(f"{figdate}\nTime [HH:MM]", fontsize=AXLABEL_FONTSIZE+6)
 
         if not title:
             particle_str = "electrons" if self.species=='e' else "protons" if self.species=='p' else "ions"
-            ax.set_title(f"{self.spacecraft}/{self.sensor} ({self.channel_str}) {particle_str}, data integration time vs. onset distribution stats")
+            ax.set_title(f"{self.spacecraft.upper()}/{self.sensor.upper()} ({self.channel_str}) {particle_str}\ndata integration time vs. onset distribution stats", 
+                         fontsize=TITLE_FONTSIZE+9)
         else:
-            ax.set_title(title)
+            ax.set_title(title, fontsize=TITLE_FONTSIZE+9)
 
+        set_standard_ticks(ax=ax)
+        # More tick settings (nonstandard)
+        ax.tick_params(which="both", labelsize=TICK_LABELSIZE+9)
         hour_minute_format = DateFormatter("%H:%M")
         ax.yaxis.set_major_formatter(hour_minute_format)
 
         ax.grid()
-        ax.legend(loc=3, bbox_to_anchor=(1.0, 0.01), prop={'size': 12})
+        ax.legend(loc=3, bbox_to_anchor=(1.0, 0.01), prop={'size': 24})
 
         if save:
             if not savepath:
@@ -3111,6 +3128,7 @@ class OnsetStatsArray:
         else:
             ax.set_xlim(pd.to_datetime(xlim[0]), pd.to_datetime(xlim[1]))
 
+        set_standard_ticks(ax=ax)
         ax.xaxis_date()
         utc_dt_format1 = DateFormatter("%H:%M")
         ax.xaxis.set_major_formatter(utc_dt_format1)
@@ -3123,7 +3141,8 @@ class OnsetStatsArray:
         ax.set_ylim(ylim)
 
         ax.set_yscale("log")
-        ax.set_ylabel("Intensity [1/(cm^2 sr s MeV)]")
+        ax.set_ylabel("Intensity [1/(cm^2 sr s MeV)]", fontsize=AXLABEL_FONTSIZE)
+        ax.set_xlabel("Time", fontsize=AXLABEL_FONTSIZE)
 
         # The intensity data, kw where dictates where the step happens. "mid" for the middle of the bin
         ax.step(flux_in_plot.index, flux_in_plot.values, where="mid")
@@ -3156,7 +3175,7 @@ class OnsetStatsArray:
             raise ValueError(f"Argument legend_loc has to be either 'in' or 'out', not {legend_loc}")
         ax.legend(loc=legend_handle, bbox_to_anchor=legend_bbox, prop={"size": 12})
         int_time_str = f"{self.integration_times[index]} integration time" if index != 0 else f"{int(self.linked_object.get_minimum_cadence().seconds/60)} min data" if self.linked_object.get_minimum_cadence().seconds>59 else f"{self.linked_object.get_minimum_cadence().seconds} s data"
-        ax.set_title(f"{most_likely_onset[0].date()}\nOnset distribution ({int_time_str})")
+        ax.set_title(f"{most_likely_onset[0].date()}\nOnset distribution ({int_time_str})", fontsize=TITLE_FONTSIZE)
 
         if save:
             if not savepath:
@@ -3233,6 +3252,7 @@ class OnsetStatsArray:
         else:
             ax.set_xlim(pd.to_datetime(xlim[0]), pd.to_datetime(xlim[1]))
 
+        set_standard_ticks(ax=ax)
         ax.xaxis_date()
         utc_dt_format1 = DateFormatter("%H:%M")
         ax.xaxis.set_major_formatter(utc_dt_format1)
@@ -3247,11 +3267,12 @@ class OnsetStatsArray:
 
         ax.set_ylim(ylim)
         ax.set_yscale("log")
-        ax.set_ylabel("Intensity [1/(cm^2 sr s MeV)]")
+        ax.set_ylabel("Intensity [1/(cm^2 sr s MeV)]", fontsize=AXLABEL_FONTSIZE)
+        ax.set_xlabel("Time", fontsize=AXLABEL_FONTSIZE)
 
         ax.legend()
         int_time_str = f"{self.integration_times[index]} integration time" if index != 0 else f"{int(self.linked_object.get_minimum_cadence().seconds/60)} min data" if self.linked_object.get_minimum_cadence().seconds>59 else f"{self.linked_object.get_minimum_cadence().seconds} s data"
-        ax.set_title(f"{onset_median.date()}\nOnset statistics ({int_time_str})")
+        ax.set_title(f"{onset_median.date()}\nOnset statistics ({int_time_str})", fontsize=TITLE_FONTSIZE)
 
         if save:
             if not savepath:
@@ -3299,7 +3320,7 @@ class OnsetStatsArray:
         confidence_intervals_all = [timestamp for sublist in confidence_intervals_all for timestamp in sublist]
 
         # Init the figure
-        fig, ax = plt.subplots(figsize=(13,7))
+        fig, ax = plt.subplots(figsize=STANDARD_FIGSIZE)
 
         rcParams["font.size"] = 20
 
@@ -3307,9 +3328,9 @@ class OnsetStatsArray:
 
         # Settings for axes
         ax.xaxis_date()
-        ax.set_xlabel("Time")
-        ax.set_ylabel("Cumulative Probability")
-        ax.set_title(f"Cumulative Distribution Function, ({int_time_str})")
+        ax.set_xlabel("Time", fontsize=AXLABEL_FONTSIZE)
+        ax.set_ylabel("Cumulative Probability", fontsize=AXLABEL_FONTSIZE)
+        ax.set_title(f"Cumulative Distribution Function, ({int_time_str})", fontsize=TITLE_FONTSIZE)
         hour_minute_format = DateFormatter("%H:%M")
         ax.xaxis.set_major_formatter(hour_minute_format)
 
@@ -4393,6 +4414,30 @@ def set_fig_ylimits(ax:plt.Axes, ylim:(list,tuple)=None, flux_series:pd.Series=N
     return ylim
 
 
+def set_standard_ticks(ax):
+    """
+    Handles tickmarks, their sizes etc...
+    """
+
+    ax.tick_params(which='major', length=8, width=2.2, labelsize=TICK_LABELSIZE)
+    ax.tick_params(which='minor', length=6, width=1.8)
+
+
+def get_figdate(dt_array):
+    """
+    Gets the string representation as YYYY-MM-DD from a list of datetime, ignoring NaTs.
+    """
+
+    figdate = pd.NaT
+
+    increment = 0
+    while pd.isnull(figdate):
+        figdate = dt_array[increment]
+        increment += 1
+    
+    return figdate.date().strftime("%Y-%m-%d")
+
+
 def _isnotebook():
     # https://stackoverflow.com/a/39662359/2336056
     try:
@@ -4412,3 +4457,4 @@ def _isnotebook():
 if _isnotebook():
     from IPython.core.display import HTML, display
     display(HTML(data="""<style> div#notebook-container { width: 99%; } div#menubar-container { width: 85%; } div#maintoolbar-container { width: 99%; } </style>"""))
+    
