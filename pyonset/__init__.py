@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2023-11-23
+@Updated: 2023-11-24
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -2028,16 +2028,7 @@ class Onset(Event):
         precision = 5 if spacecraft != "solo" else 8
         rel_time_str =str(release_time.time())[:precision]
 
-        for i in range(len(onset_times)):
-            try:
-                date_of_event = onset_times[i].date()
-
-            # This error is caused by .date() method being called by a 'MaskedConstant'. I did not investigate further
-            # what the root of the error exactly is.
-            except AttributeError:
-                continue
-            if not isinstance(date_of_event, pd._libs.tslibs.nattype.NaTType):
-                break
+        date_of_event = get_figdate(onset_times)
 
         # Declare axes, the things plotted and returned by this function
         # First observed datapoints, then fit and its slope+constant, lastly y-and x errors
@@ -2481,7 +2472,7 @@ class Onset(Event):
         uncertainty_stats_by_channel = np.array([])
 
         # Check which channels to run uncertainty stats on
-        if not channels or channels=="all":
+        if channels is None or channels=="all":
             all_channels = self.get_all_channels()
         elif isinstance(channels, (tuple, list, range)):
             all_channels = channels
@@ -3114,7 +3105,8 @@ class OnsetStatsArray:
         most_likely_onset = self.archive[index]["most_likely_onset"]
         onsets = self.archive[index]["unique_onsets"]
 
-        figdate = get_figdate(onsets)
+        # Gets the date of the event
+        figdate = get_figdate(self.archive[0]["onset_list"])
 
         # Create a colormap for different shades of red for the onsets. Create the map with the amount of onsets+2, so that
         # the first and the final color are left unused. They are basically white and a very very dark red.
@@ -3793,8 +3785,8 @@ def sample_mean_and_std(start, end, flux_series, sample_size=None, prints_warnin
 
     # Reset the random generator seed if one was given as an input, to not mess up other potential random
     # processes later.
-    if use_seed:
-        np.random.seed()
+    #if use_seed:
+     #   np.random.seed()
 
     # Calculate mean and std of the chosen sample of data points
     mean = np.nanmean(sample)
@@ -4431,7 +4423,7 @@ def set_standard_ticks(ax):
 
 def get_figdate(dt_array):
     """
-    Gets the string representation as YYYY-MM-DD from a list of datetime, ignoring NaTs.
+    Gets the string representation as YYYY-MM-DD from a list of datetimes, ignoring NaTs.
     """
 
     figdate = pd.NaT
