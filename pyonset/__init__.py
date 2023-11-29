@@ -3075,7 +3075,7 @@ class OnsetStatsArray:
         plt.show()
 
 
-    def show_onset_distribution(self, index:int=0, xlim=None, show_background=True, save=False, savepath:str=None, legend_loc="out") -> None:
+    def show_onset_distribution(self, integration_time_index:int=0, xlim=None, show_background=True, save=False, savepath:str=None, legend_loc="out") -> None:
         """
         Displays all the unique onsets found with statistic_onset() -method in a single plot. The mode onset, that is
         the most common out of the distribution, will be shown as a solid line. All other unique onset times are shown
@@ -3088,7 +3088,7 @@ class OnsetStatsArray:
 
         Parameters:
         -----------
-        index : int, default 0
+        integration_time_index : int, default 0
                 Choose which distribution from the integration time plot to show
         xlim : {tuple or list with __len__==2}, optional
                 The limits of x-axis as pandas-compatible datetime strings, e.g., '2021-09-25 12:00'
@@ -3104,9 +3104,9 @@ class OnsetStatsArray:
 
         rcParams["font.size"] = 20
 
-        flux_series = self.list_of_series[index]
-        most_likely_onset = self.archive[index]["most_likely_onset"]
-        onsets = self.archive[index]["unique_onsets"]
+        flux_series = self.list_of_series[integration_time_index]
+        most_likely_onset = self.archive[integration_time_index]["most_likely_onset"]
+        onsets = self.archive[integration_time_index]["unique_onsets"]
 
         # Gets the date of the event
         figdate = get_figdate(self.archive[0]["onset_list"])
@@ -3173,7 +3173,9 @@ class OnsetStatsArray:
         ax.legend(loc=legend_handle, bbox_to_anchor=legend_bbox, prop={"size": 12})
 
         particle_str = "electrons" if self.species=='e' else "protons" if self.species=='p' else "ions"
-        int_time_str = f"{self.integration_times[index]} integration time" if index != 0 else f"{int(self.linked_object.get_minimum_cadence().seconds/60)} min data" if self.linked_object.get_minimum_cadence().seconds>59 else f"{self.linked_object.get_minimum_cadence().seconds} s data"
+        
+        int_time_str = f"{self.integration_times[integration_time_index]} integration time" if pd.Timedelta(self.integration_times[integration_time_index]) != self.linked_object.get_minimum_cadence() else f"{self.integration_times[index]} data"
+        # int_time_str = f"{self.integration_times[index]} integration time" if index != 0 else f"{int(self.linked_object.get_minimum_cadence().seconds/60)} min data" if self.linked_object.get_minimum_cadence().seconds>59 else f"{self.linked_object.get_minimum_cadence().seconds} s data"
         ax.set_title(f"{self.spacecraft.upper()}/{self.sensor.upper()} ({self.channel_str}) {particle_str}\nOnset distribution ({int_time_str})", fontsize=TITLE_FONTSIZE)
 
         if save:
@@ -3185,7 +3187,7 @@ class OnsetStatsArray:
         plt.show()
 
 
-    def show_onset_statistics(self, index:int=0, percentiles=[(15.89,84.1),(2.3,97.7)], xlim=None, show_background=True, save=False, savepath:str=None) -> None:
+    def show_onset_statistics(self, integration_time_index:int=0, percentiles=[(15.89,84.1),(2.3,97.7)], xlim=None, show_background=True, save=False, savepath:str=None) -> None:
         """
         Shows the median, mode, mean and confidence intervals for the distribution of onsets got from statistic_onset().
 
@@ -3194,7 +3196,7 @@ class OnsetStatsArray:
 
         Parameters:
         -----------
-        index : int, default 0
+        integration_time_index : int, default 0
                 Choose which distribution from the integration time plot to show
         percentiles : list of tuples, default [(15.89,84.1),(2.3,97.7)]
                 Shows the percentiles of the distribution as shading over the plot
@@ -3212,17 +3214,17 @@ class OnsetStatsArray:
         sigma1, sigma2 = percentiles[0], percentiles[1]
 
         # Collect the 1-sigma and 2-sigma confidence intervals out of the onset distribution
-        confidence_intervals = self.linked_object.get_distribution_percentiles(onset_list = self.archive[index]["onset_list"], percentiles=[sigma1,sigma2])
+        confidence_intervals = self.linked_object.get_distribution_percentiles(onset_list = self.archive[integration_time_index]["onset_list"], percentiles=[sigma1,sigma2])
 
         # Collect the median, mode and mean onsets from the distribution
-        onset_median = self.archive[index]["median_onset"]
-        onset_mode = self.archive[index]["most_likely_onset"][0]
-        onset_mean = self.archive[index]["mean_onset"]
+        onset_median = self.archive[integration_time_index]["median_onset"]
+        onset_mode = self.archive[integration_time_index]["most_likely_onset"][0]
+        onset_mean = self.archive[integration_time_index]["mean_onset"]
 
         figdate = onset_mean.date().strftime("%Y-%m-%d")
 
         # This is just for plotting the time series with the chosen resolution
-        flux_series = self.list_of_series[index]
+        flux_series = self.list_of_series[integration_time_index]
 
         # Plot commands and settings:
         fig, ax = plt.subplots(figsize=STANDARD_FIGSIZE)
@@ -3273,7 +3275,8 @@ class OnsetStatsArray:
         ax.legend()
 
         particle_str = "electrons" if self.species=='e' else "protons" if self.species=='p' else "ions"
-        int_time_str = f"{self.integration_times[index]} integration time" if index != 0 else f"{int(self.linked_object.get_minimum_cadence().seconds/60)} min data" if self.linked_object.get_minimum_cadence().seconds>59 else f"{self.linked_object.get_minimum_cadence().seconds} s data"
+        int_time_str = f"{self.integration_times[integration_time_index]} integration time" if pd.Timedelta(self.integration_times[integration_time_index]) != self.linked_object.get_minimum_cadence() else f"{self.integration_times[index]} data"
+        # int_time_str = f"{self.integration_times[index]} integration time" if index != 0 else f"{int(self.linked_object.get_minimum_cadence().seconds/60)} min data" if self.linked_object.get_minimum_cadence().seconds>59 else f"{self.linked_object.get_minimum_cadence().seconds} s data"
         ax.set_title(f"{self.spacecraft.upper()}/{self.sensor.upper()} ({self.channel_str}) {particle_str}\nOnset statistics ({int_time_str})", fontsize=TITLE_FONTSIZE)
 
         if save:
@@ -3325,7 +3328,8 @@ class OnsetStatsArray:
 
         rcParams["font.size"] = 20
 
-        int_time_str = f"{self.integration_times[index]} integration time" if index != 0 else f"{int(self.linked_object.get_minimum_cadence().seconds/60)} min data" if self.linked_object.get_minimum_cadence().seconds>59 else f"{self.linked_object.get_minimum_cadence().seconds} s data"
+        int_time_str = f"{self.integration_times[index]} integration time" if pd.Timedelta(self.integration_times[index]) != self.linked_object.get_minimum_cadence() else f"{self.integration_times[index]} data"
+        # int_time_str = f"{self.integration_times[index]} integration time" if index != 0 else f"{int(self.linked_object.get_minimum_cadence().seconds/60)} min data" if self.linked_object.get_minimum_cadence().seconds>59 else f"{self.linked_object.get_minimum_cadence().seconds} s data"
 
         # Settings for axes
         ax.xaxis_date()
