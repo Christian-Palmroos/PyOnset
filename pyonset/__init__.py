@@ -168,8 +168,11 @@ class Onset(Event):
 
         if self.sensor.lower() in ("het", "erne", "ephin"):
 
+            # STA/STB HET, and SOHO all instruments don't have viewings -> assign None to them
             if self.spacecraft.lower() in ("sta", "stb", "soho"):
                 self.viewing = None
+            else:
+                self.viewing = self.viewing
 
         if returns:
             return self.viewing
@@ -697,7 +700,7 @@ class Onset(Event):
         big_window_end = Window.end
 
         # Before going to pick the correct flux_series, check that viewing is reasonable.
-        if viewing and not self.check_viewing(returns=True):
+        if viewing is not None and not self.check_viewing(returns=True):
             raise ValueError("Invalid viewing direction!")
 
         # Choose the right intensity time series according to channel and viewing direction.
@@ -920,7 +923,8 @@ class Onset(Event):
             median_onset =  datetime_nanmedian(onset_list)
 
             # Also calculate 1-sigma and 2-sigma confidence intervals for the onset distribution
-            confidence_intervals = self.get_distribution_percentiles(onset_list=onset_list, percentiles=[(15.89,84.1), (2.3,97.7)])
+            # The method here also check the validity of the confidence intervals, which is thy it takes as an input the time resolution used
+            confidence_intervals = self.get_distribution_percentiles(onset_list=onset_list, percentiles=[(15.89,84.1), (2.3,97.7)], time_reso=time_reso)
 
         # Attach the statistics to class attributes for easier handling. The first entry of list_of_series is the 
         # original flux_series without shifting any indices
@@ -2247,10 +2251,8 @@ class Onset(Event):
         if self.spacecraft=="wind" and self.species=='p' and channels in (0,1):
             return  None
 
-        # The first round of onset statistics is acquired by time resolution close to or exactly the native resolution 
-        if self.spacecraft == "wind":
-            first_resample = "1 min"
-        elif self.spacecraft == "solo" and limit_computation_time:
+        # The first round of onset statistics is acquired from 1 minute resolution, if computation time is limited 
+        if self.spacecraft in ("solo", "wind") and limit_computation_time:
             first_resample = "1 min"
         else:
             first_resample = None
@@ -2650,7 +2652,7 @@ class Onset(Event):
         return median, mode, mean, confidence_intervals
 
 
-    def get_distribution_percentiles(self, onset_list, percentiles:tuple):
+    def get_distribution_percentiles(self, onset_list, percentiles:tuple, time_reso=None):
         """
         Returns the confidence intervals of an onset distribution. Includes a check to make sure
         that the uncertainty intervals are not smaller than the data time resolution.
@@ -2676,7 +2678,8 @@ class Onset(Event):
             confidence_intervals = pd.to_datetime(np.nanpercentile(onset_list,percentiles))
 
         # Finally check that the percentiles make sense (in that they are not less than the native data resolution of the instrument)
-        time_reso = self.get_minimum_cadence()
+        if not time_reso:
+            time_reso = self.get_minimum_cadence()
         confidence_intervals = check_confidence_intervals(confidence_intervals, time_reso=time_reso)
 
         return confidence_intervals
@@ -3417,6 +3420,9 @@ class OnsetStatsArray:
         self.w_sigma1_upper_bound = weight_timestamp(weights=weights, timestamps=sigma1_upper_bounds)
         self.w_sigma2_upper_bound = weight_timestamp(weights=weights, timestamps=sigma2_upper_bounds)
 
+        # Introduce a check to move the boundaries away from mode and median if they are too close
+        self.check_weighted_timestamps()
+
         # Propagate the infromation of the weighted median and confidence intervals to the linked object too
         self.set_w_median_and_confidence_intervals( self.w_mode,
                                                     self.w_median,
@@ -3424,7 +3430,27 @@ class OnsetStatsArray:
                                                     self.w_sigma2_low_bound, self.w_sigma2_upper_bound)
 
         if returns:
-            return self.w_sigma1_low_bound, self.w_sigma2_low_bound, self.w_median, self.w_sigma1_upper_bound, self.w_sigma2_upper_bound
+            return self.mode, self.w_median, self.w_sigma1_low_bound, self.w_sigma1_upper_bound, self.w_sigma2_low_bound, self.w_sigma2_upper_bound
+
+    def check_weighted_timestamps(self):
+        """
+        Checks that the intervals boundaries are separated from the mode and the median by at least 
+        the native data resolution of the instrument. Moves them if not.
+        """
+
+        # We will not allow for a separation of less than the instrument resolution 
+        min_separation = self.linked_object.get_minimum_cadence()
+
+        if self.w_mode - self.w_sigma1_low_bound < min_separation:
+            self.w_sigma1_low_bound = self.w_mode - min_separation
+        if self.w_mode - self.w_sigma2_low_bound < min_separation:
+            self.w_sigma2_low_bound = self.w_mode - min_separation
+        
+        if self.w_sigma1_upper_bound - self.w_mode < min_separation:
+            self.w_sigma1_upper_bound = self.w_mode + min_separation
+        if self.w_sigma2_upper_bound - self.w_mode < min_separation:
+            self.w_sigma2_upper_bound = self.w_mode + min_separation
+
 
 
 def check_confidence_intervals(confidence_intervals, time_reso):
@@ -4335,7 +4361,7 @@ def seek_fit_and_errors(x,y,xerr,yerr, guess=None):
     data = RealData(x, y, xerr, yerr)
 
     if not guess:
-        slope0, const0 = 1.0, y[0]
+        slope0, const0 = 1.0, y[-1]
     else:
         slope0, const0 = guess[0], datetime_to_sec([pd.to_datetime(guess[1])])[0]
 
