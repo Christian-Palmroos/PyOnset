@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2023-11-29
+@Updated: 2023-11-30
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -2904,13 +2904,14 @@ class OnsetStatsArray:
         self.integration_times.append(int_time) if str(delta_min)[:7] != "0.98333" else self.integration_times.append("1 min")
 
 
-    def onset_time_histogram(self, binwidth="1min", xlims=None, ylims=None, save=False, savepath=None):
+    def onset_time_histogram(self, integration_time_index=0, binwidth="1min", xlims=None, ylims=None, legend_loc=1,
+                            save=False, savepath=None):
         """
         A method to display the probability density histogram for the distribution of onset times collected
         to the object.
         """
        
-        stats = self.statistics
+        stats = self.archive[integration_time_index]
 
         # Plotting 
         fig, ax = plt.subplots(figsize=STANDARD_FIGSIZE)
@@ -2948,14 +2949,16 @@ class OnsetStatsArray:
         ax.axvspan(xmin=stats["2-sigma_confidence_interval"][0], xmax=stats["2-sigma_confidence_interval"][1], color="blue", alpha=0.15, label="2-sigma", zorder=1)
         ax.axvspan(xmin=stats["1-sigma_confidence_interval"][0], xmax=stats["1-sigma_confidence_interval"][1], color="red", alpha=0.15, label="1-sigma", zorder=1)
 
-        ax.set_xlabel(f"Time\n{stats['mean_onset'].strftime('%Y-%m-%d')}", fontsize=AXLABEL_FONTSIZE)
+        ax.set_xlabel(f"Time ({stats['mean_onset'].strftime('%Y-%m-%d')})", fontsize=AXLABEL_FONTSIZE)
         ax.set_ylabel("PD", fontsize=AXLABEL_FONTSIZE)
         ax.grid(True)
 
-        ax.set_title(f"Probability density for {self.linked_object.background.bootstraps} onset times", fontsize=TITLE_FONTSIZE)
+        integration_time_str = f"{self.integration_times[integration_time_index]} integration time" if pd.Timedelta(self.integration_times[integration_time_index]) != self.linked_object.get_minimum_cadence() else f"{self.integration_times[integration_time_index]} data"
+
+        ax.set_title(f"Probability density for {self.linked_object.background.bootstraps} onset times\n{integration_time_str}", fontsize=TITLE_FONTSIZE)
         ax.xaxis.set_major_formatter(DateFormatter("%H:%M"))
 
-        plt.legend(loc=1, bbox_to_anchor=(1.0, 1.0), fancybox=True, ncol=3, fontsize = 14)
+        plt.legend(loc=legend_loc, bbox_to_anchor=(1.0, 1.0), fancybox=True, ncol=3, fontsize = 17)
 
         if save:
             if savepath is None:
@@ -3174,7 +3177,7 @@ class OnsetStatsArray:
 
         particle_str = "electrons" if self.species=='e' else "protons" if self.species=='p' else "ions"
         
-        int_time_str = f"{self.integration_times[integration_time_index]} integration time" if pd.Timedelta(self.integration_times[integration_time_index]) != self.linked_object.get_minimum_cadence() else f"{self.integration_times[index]} data"
+        int_time_str = f"{self.integration_times[integration_time_index]} integration time" if pd.Timedelta(self.integration_times[integration_time_index]) != self.linked_object.get_minimum_cadence() else f"{self.integration_times[integration_time_index]} data"
         # int_time_str = f"{self.integration_times[index]} integration time" if index != 0 else f"{int(self.linked_object.get_minimum_cadence().seconds/60)} min data" if self.linked_object.get_minimum_cadence().seconds>59 else f"{self.linked_object.get_minimum_cadence().seconds} s data"
         ax.set_title(f"{self.spacecraft.upper()}/{self.sensor.upper()} ({self.channel_str}) {particle_str}\nOnset distribution ({int_time_str})", fontsize=TITLE_FONTSIZE)
 
@@ -3275,7 +3278,7 @@ class OnsetStatsArray:
         ax.legend()
 
         particle_str = "electrons" if self.species=='e' else "protons" if self.species=='p' else "ions"
-        int_time_str = f"{self.integration_times[integration_time_index]} integration time" if pd.Timedelta(self.integration_times[integration_time_index]) != self.linked_object.get_minimum_cadence() else f"{self.integration_times[index]} data"
+        int_time_str = f"{self.integration_times[integration_time_index]} integration time" if pd.Timedelta(self.integration_times[integration_time_index]) != self.linked_object.get_minimum_cadence() else f"{self.integration_times[integration_time_index]} data"
         # int_time_str = f"{self.integration_times[index]} integration time" if index != 0 else f"{int(self.linked_object.get_minimum_cadence().seconds/60)} min data" if self.linked_object.get_minimum_cadence().seconds>59 else f"{self.linked_object.get_minimum_cadence().seconds} s data"
         ax.set_title(f"{self.spacecraft.upper()}/{self.sensor.upper()} ({self.channel_str}) {particle_str}\nOnset statistics ({int_time_str})", fontsize=TITLE_FONTSIZE)
 
