@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2023-11-30
+@Updated: 2023-12-04
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -1842,8 +1842,6 @@ class Onset(Event):
         # Only one instrument:
         else:
 
-            onset_times_all = pd.to_datetime(onset_times)
-
             # Calculate the inverse betas corresponding to the nominal channel energies
             inverse_beta = calculate_inverse_betas(channel_energies=nominal_energies, mass_energy=mass_energy)
 
@@ -1986,6 +1984,7 @@ class Onset(Event):
 
             # Common name to take into account single instrument and two-instrument code blocks
             inverse_beta_all = inverse_beta
+            onset_times_all = onset_times
 
         # Here onward we do the fit, and find the slope and intersection of this fit ->
 
@@ -2027,10 +2026,10 @@ class Onset(Event):
         release_time = datetime.datetime.utcfromtimestamp(constant)
 
         # Precision of t_inj display:
-        precision = 5 if spacecraft != "solo" else 8
+        precision = 5 if spacecraft not in ("solo","wind") else 8
         rel_time_str =str(release_time.time())[:precision]
 
-        date_of_event = get_figdate(onset_times)
+        date_of_event = get_figdate(onset_times_all.compressed())
 
         # Declare axes, the things plotted and returned by this function
         # First observed datapoints, then fit and its slope+constant, lastly y-and x errors
@@ -4451,10 +4450,12 @@ def get_figdate(dt_array):
 
     figdate = pd.NaT
 
-    increment = 0
-    while pd.isnull(figdate):
-        figdate = dt_array[increment]
-        increment += 1
+    for date in dt_array:
+
+        if not pd.isnull(date):
+            figdate = date
+            break
+
     
     return figdate.date().strftime("%Y-%m-%d")
 
