@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2023-12-04
+@Updated: 2023-12-08
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -1530,7 +1530,7 @@ class Onset(Event):
 
     def VDA(self, onset_times=np.array([]), Onset=None, energy:str='gmean', selection=None, 
             yerrs=None, reference:str="mode", title=None, ylim=None, plot=True, guess=None, save=False,
-            savepath=None):
+            savepath=None, grid=True):
         """
         Performs Velocity Dispersion Analysis.
 
@@ -1560,6 +1560,8 @@ class Onset(Event):
                     intersection point, which is a pandas-compatible datetime string.
         save: {bool}, default False
                     Switch to save the plotted figure. Only works if plot=True.
+        grid : {bool} default True
+                    Boolean switch for gridlines.
 
         Returns:
         ---------
@@ -2021,7 +2023,7 @@ class Onset(Event):
 
         odr_fit_sec = inverse_beta_corrected*slope
         odr_fit = np.array([datetime.datetime.utcfromtimestamp(sec + constant) for sec in odr_fit_sec.compressed()])
-        
+
         # Release time is the timestamp where the line intersects y-axis
         release_time = datetime.datetime.utcfromtimestamp(constant)
 
@@ -2063,7 +2065,7 @@ class Onset(Event):
 
             fig, ax = plt.subplots(figsize=VDA_FIGSIZE)
 
-            ax.grid(visible=True, axis="both")
+            ax.grid(visible=grid, axis="both")
 
             # About matplotlib.Axes.errorbar:
             # shape(2, N): Separate - and + values for each bar. First row contains the lower errors, the second row contains the upper errors.
@@ -2903,11 +2905,28 @@ class OnsetStatsArray:
         self.integration_times.append(int_time) if str(delta_min)[:7] != "0.98333" else self.integration_times.append("1 min")
 
 
-    def onset_time_histogram(self, integration_time_index=0, binwidth="1min", xlims=None, ylims=None, legend_loc=1,
-                            save=False, savepath=None):
+    def onset_time_histogram(self, integration_time_index=0, binwidth="1 min", xlims=None, ylims=None, legend_loc=1,
+                            save=False, savepath=None, grid=True):
         """
         A method to display the probability density histogram for the distribution of onset times collected
         to the object.
+
+        Parameters:
+        -----------
+        integration_time_index : {int}, default 0
+                                    Chooses the integration time, where 0 represents the native data time resolution.
+        binwidth : {str}, default '1 min'
+                                    Sets the width of time bins on the x-axis.
+        xlims : {tuple}
+        ylims : {tuple}
+        legend_loc : {int}, default 1
+                                    Sets the location of the legend.
+        save : {bool}, default False
+                                    Boolean save switch.
+        savepath : {str}, optional
+                                    Path to the directory to save the figure.
+        grid : {bool}, default True
+                                    Boolean switch to apply gridlines.
         """
        
         stats = self.archive[integration_time_index]
@@ -2950,7 +2969,8 @@ class OnsetStatsArray:
 
         ax.set_xlabel(f"Time ({stats['mean_onset'].strftime('%Y-%m-%d')})", fontsize=AXLABEL_FONTSIZE)
         ax.set_ylabel("PD", fontsize=AXLABEL_FONTSIZE)
-        ax.grid(True)
+
+        ax.grid(visible=grid, axis="both")
 
         integration_time_str = f"{self.integration_times[integration_time_index]} integration time" if pd.Timedelta(self.integration_times[integration_time_index]) != self.linked_object.get_minimum_cadence() else f"{self.integration_times[integration_time_index]} data"
 
@@ -2967,7 +2987,7 @@ class OnsetStatsArray:
 
         plt.show()
 
-    def integration_time_plot(self, title=None, ylims=None, save=False, savepath:str=None) -> None:
+    def integration_time_plot(self, title=None, ylims=None, save=False, savepath:str=None, grid=True) -> None:
         """
         Plots the median, mean, mode and confidence intervals for an array of Onset objects as a function
         of integration time (basically time resolution of the data, may be resampled)
@@ -2983,6 +3003,8 @@ class OnsetStatsArray:
                 Saves the figure
         savepath : {str}, optional
                 The directory path or subdirectory to save the figure.
+        grid : {bool}, default True
+                Boolean switch to turn on gridlines.
         """
 
         # Collect the stats and different time resolutions
@@ -3065,7 +3087,7 @@ class OnsetStatsArray:
         hour_minute_format = DateFormatter("%H:%M")
         ax.yaxis.set_major_formatter(hour_minute_format)
 
-        ax.grid()
+        ax.grid(visible=grid, axis="both")
         ax.legend(loc=3, bbox_to_anchor=(1.0, 0.01), prop={'size': 24})
 
         if save:
