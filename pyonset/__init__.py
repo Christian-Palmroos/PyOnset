@@ -2295,6 +2295,7 @@ class Onset(Event):
 
                 else:
                     # SolO instruments and Wind/3DP have high cadence (< 1 min), so start integrating from 1 minute measurements
+                    # unless limit_computation_time is enabled
                     start_idx = 1 if self.spacecraft in ("solo", "wind") and not limit_computation_time else 2
 
                     # Initialize integration times only up to the amount of minutes that the first run had uncertainty
@@ -2315,7 +2316,9 @@ class Onset(Event):
                     else:
                         pass
 
-                if self.spacecraft in ("solo", "wind"):
+                # SolO instruments and Wind/3DP have high cadence (< 1 min), so start integrating from 1 minute measurements
+                    # unless limit_computation_time is enabled
+                if self.spacecraft in ("solo", "wind") and not limit_computation_time:
                     int_times = np.array([i for i in range(1,stop_int+1)])
                 else:
                     int_times = np.array([i for i in range(2,stop_int+1)])
@@ -2395,10 +2398,10 @@ class Onset(Event):
             int_times = int_times[np.where(int_times <= limit_averaging_int)]
 
         # Finally convert int_times (minutes) to pandas-compatible time strs
-        int_times = np.array([f"{i}min" for i in int_times])
+        int_time_strs = np.array([f"{i}min" for i in int_times])
 
         # Loop through int_times as far as the first run uncertainty reaches
-        for _, resample in enumerate(int_times):
+        for _, resample in enumerate(int_time_strs):
 
             if int(resample[:-3]) > 10:
                 cusum_minutes = int(resample[:-3])*3
