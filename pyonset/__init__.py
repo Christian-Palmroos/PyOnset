@@ -2133,20 +2133,20 @@ class Onset(Event):
                     if self.spacecraft == Onset.spacecraft:
                         instrument_species_id = instrument.upper() if species_title==species_title1 else f"{instrument.upper()} {species_title}"
                         if self.viewing:
-                            ax.set_title(f"VDA, {spacecraft.upper()} / {instrument_species_id}({self.viewing}) + {Onset.sensor.upper()} {species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
+                            ax.set_title(f"VDA, {spacecraft.upper()} / {instrument_species_id}({self.viewing}) + {Onset.sensor.upper()} {species_title1}, {date_of_event}", fontsize=TITLE_FONTSIZE)
                         else:
-                            ax.set_title(f"VDA, {spacecraft.upper()} / {instrument_species_id} + {Onset.sensor.upper()} {species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
+                            ax.set_title(f"VDA, {spacecraft.upper()} / {instrument_species_id} + {Onset.sensor.upper()} {species_title1}, {date_of_event}", fontsize=TITLE_FONTSIZE)
 
                     else:
                         # In this case these are two different spacecraft
                         if self.viewing and Onset.viewing:
-                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument_species_id}({self.viewing}) + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}({Onset.viewing})\n{species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
+                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument_species_id}({self.viewing}) + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}({Onset.viewing})\n{species_title1}, {date_of_event}", fontsize=TITLE_FONTSIZE)
                         elif self.viewing:
-                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument_species_id}({self.viewing}) + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}\n{species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
+                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument_species_id}({self.viewing}) + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}\n{species_title1}, {date_of_event}", fontsize=TITLE_FONTSIZE)
                         elif Onset.viewing:
-                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument_species_id} + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}({Onset.viewing})\n{species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
+                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument_species_id} + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}({Onset.viewing})\n{species_title1}, {date_of_event}", fontsize=TITLE_FONTSIZE)
                         else:
-                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument_species_id} + {Onset.spacecraft.upper()}/{Onset.sensor.upper()} {species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
+                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument_species_id} + {Onset.spacecraft.upper()}/{Onset.sensor.upper()} {species_title1}, {date_of_event}", fontsize=TITLE_FONTSIZE)
 
                 else:
                     # Single spacecraft, single instrument
