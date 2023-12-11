@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2023-12-08
+@Updated: 2023-12-12
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -1622,6 +1622,13 @@ class Onset(Event):
         # Here check if two lists of onset times are being performed VDA upon
         if Onset:
 
+            # The other set of onset times may belomng to a different particle species
+            if Onset.species in ("electron", "electrons", "ele", 'e'):
+                m_species1, species_title1 = const.m_e.value, "electrons"
+            else:
+                m_species1, species_title1 = const.m_p.value, "protons"
+            mass_energy1 = m_species1 * C_SQUARED
+
             # First get the energies and nominal energies for the second instrument
             e_min1, e_max1 = Onset.get_channel_energy_values()
 
@@ -1662,7 +1669,7 @@ class Onset(Event):
 
             # Calculate the inverse betas corresponding to the nominal channel energies
             inverse_beta = calculate_inverse_betas(channel_energies=nominal_energies, mass_energy=mass_energy)
-            inverse_beta1 = calculate_inverse_betas(channel_energies=nominal_energies1, mass_energy=mass_energy)
+            inverse_beta1 = calculate_inverse_betas(channel_energies=nominal_energies1, mass_energy=mass_energy1)
 
             inverse_beta_all = np.concatenate((inverse_beta, inverse_beta1))
 
@@ -1677,7 +1684,7 @@ class Onset(Event):
 
             # Error bars in x direction:
             x_errors_lower, x_errors_upper,  x_errors = get_x_errors(e_min=e_min, e_max=e_max, inverse_betas=inverse_beta, mass_energy=mass_energy)
-            x_errors_lower1, x_errors_upper1,  x_errors1 = get_x_errors(e_min=e_min1, e_max=e_max1, inverse_betas=inverse_beta1, mass_energy=mass_energy)
+            x_errors_lower1, x_errors_upper1,  x_errors1 = get_x_errors(e_min=e_min1, e_max=e_max1, inverse_betas=inverse_beta1, mass_energy=mass_energy1)
 
             # Arrays to hold all the lower and upper energy bounds. These might be redundant
             x_errors_lower_all = np.concatenate((x_errors_lower, x_errors_lower1))
@@ -2071,12 +2078,17 @@ class Onset(Event):
             # shape(2, N): Separate - and + values for each bar. First row contains the lower errors, the second row contains the upper errors.
             # The reason xerr seems to be wrong way is that 'upper' refers to the upper ENERGY boundary, which corresponds to the LOWER 1/beta boundary
             if Onset:
+                label1 = Onset.sensor.upper() if mass_energy==mass_energy1 else f"{Onset.sensor.upper()} {species_title1}"
                 ax.errorbar(inverse_beta1, onset_times1, yerr=y_errors1_plot, xerr=[x_errors_upper1, x_errors_lower1], 
-                        fmt='o', elinewidth=1.5, capsize=4.5, zorder=1, label=Onset.sensor.upper())
+                        fmt='o', elinewidth=1.5, capsize=4.5, zorder=1, label=label1)
 
             # The reason xerr seems to be wrong way is that 'upper' refers to the upper ENERGY boundary, which corresponds to the LOWER 1/beta boundary
+            if not Onset:
+                label = "onset times"
+            else:
+                label = self.sensor.upper() if mass_energy==mass_energy1 else f"{self.sensor.upper()} {species_title}"
             ax.errorbar(inverse_beta, onset_times, yerr=y_errors_plot, xerr=[x_errors_upper, x_errors_lower], 
-                        fmt='o', elinewidth=1.5, capsize=4.5, zorder=1, label="onset times" if not Onset else self.sensor.upper())
+                        fmt='o', elinewidth=1.5, capsize=4.5, zorder=1, label=label)
 
             # Omitted datapoints, paint all points white and then those not omitted blue (+ red) again
             if plot_omitted:
@@ -2119,21 +2131,22 @@ class Onset(Event):
                 if Onset:
                     # This is the default for joint VDA, two instruments of the same spacecraft
                     if self.spacecraft == Onset.spacecraft:
+                        instrument_species_id = instrument.upper() if species_title==species_title1 else f"{instrument.upper()} {species_title}"
                         if self.viewing:
-                            ax.set_title(f"VDA, {spacecraft.upper()} / {instrument.upper()}({self.viewing}) + {Onset.sensor.upper()} {species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
+                            ax.set_title(f"VDA, {spacecraft.upper()} / {instrument_species_id}({self.viewing}) + {Onset.sensor.upper()} {species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
                         else:
-                            ax.set_title(f"VDA, {spacecraft.upper()} / {instrument.upper()} + {Onset.sensor.upper()} {species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
+                            ax.set_title(f"VDA, {spacecraft.upper()} / {instrument_species_id} + {Onset.sensor.upper()} {species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
 
                     else:
                         # In this case these are two different spacecraft
                         if self.viewing and Onset.viewing:
-                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument.upper()}({self.viewing}) + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}({Onset.viewing})\n{species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
+                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument_species_id}({self.viewing}) + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}({Onset.viewing})\n{species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
                         elif self.viewing:
-                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument.upper()}({self.viewing}) + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}\n{species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
+                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument_species_id}({self.viewing}) + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}\n{species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
                         elif Onset.viewing:
-                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument.upper()} + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}({Onset.viewing})\n{species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
+                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument_species_id} + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}({Onset.viewing})\n{species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
                         else:
-                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument.upper()} + {Onset.spacecraft.upper()}/{Onset.sensor.upper()} {species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
+                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument_species_id} + {Onset.spacecraft.upper()}/{Onset.sensor.upper()} {species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
 
                 else:
                     # Single spacecraft, single instrument
