@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2023-12-12
+@Updated: 2023-12-19
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -664,7 +664,7 @@ class Onset(Event):
                     The proportion of the ensemble of data points inside a window that are drawn for the bootstrapping method
         cusum_minutes : {int}, optional 
                     An integer stating the amount of minutes that threshold exceeding intensity must consistently be observed 
-                    before identifying an onset. If not provided, use a set of 2,4,8 and 16 times the current data resolution
+                    before identifying an onset. If not provided, use a set of 4,8, 16 and 32 times the current data resolution
         small_windows : str, default None
                     Choose either 'random' or 'equal' placement of the subwindows. Randomly placed windows can overlap,
                     while equally placed windows start where the previous ended.
@@ -777,7 +777,7 @@ class Onset(Event):
         if cusum_minutes:
             cusum_windows = [calculate_cusum_window(time_reso, cusum_minutes)]
         else:
-            cusum_window_resolution_multipliers = (2,4,8,16,32)
+            cusum_window_resolution_multipliers = (4,8,16,32)
             if time_reso[-3:]=="min":
                 cusum_minutes_list = [c*int(time_reso[:-3]) for c in cusum_window_resolution_multipliers]
             else:
@@ -2756,7 +2756,7 @@ class BootstrapWindow:
 
         # We recommend a maximum reso such that there are at least {MIN_RECOMMENDED_POINTS} data points to pick from
         max_reso = int(minutes_in_background/MIN_RECOMMENDED_POINTS)
-        print(f"Your chosen background is {minutes_in_background} minutes long. To have at least {MIN_RECOMMENDED_POINTS} data points to choose from,\nit is recommended that you either limit averaging up to {max_reso} minutes or enlarge the background window.")
+        print(f"Your chosen background is {minutes_in_background} minutes long. To preserve the minimum of {MIN_RECOMMENDED_POINTS} data points to choose from,\nit is recommended that you either limit averaging up to {max_reso} minutes or enlarge the background window.")
 
 
     def move_window(self, hours=0, minutes=0):
