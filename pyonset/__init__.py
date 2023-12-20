@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2023-12-19
+@Updated: 2023-12-20
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -3253,13 +3253,16 @@ class OnsetStatsArray:
         # Take the 1-std and 2-std limits from a normal distribution (default)
         sigma1, sigma2 = percentiles[0], percentiles[1]
 
-        # Collect the 1-sigma and 2-sigma confidence intervals out of the onset distribution
-        confidence_intervals = self.linked_object.get_distribution_percentiles(onset_list = self.archive[integration_time_index]["onset_list"], percentiles=[sigma1,sigma2])
+        # Collect the 1-sigma and 2-sigma confidence intervals out of the onset distribution 
+        # There is no sense in calculating these since they already exist in archive
+        # confidence_intervals = self.linked_object.get_distribution_percentiles(onset_list = self.archive[integration_time_index]["onset_list"], percentiles=[sigma1,sigma2])
 
         # Collect the median, mode and mean onsets from the distribution
         onset_median = self.archive[integration_time_index]["median_onset"]
         onset_mode = self.archive[integration_time_index]["most_likely_onset"][0]
         onset_mean = self.archive[integration_time_index]["mean_onset"]
+        confidence_intervals1 = self.archive[integration_time_index]["1-sigma_confidence_interval"]
+        confidence_intervals2 = self.archive[integration_time_index]["2-sigma_confidence_interval"]
 
         figdate = onset_mean.date().strftime("%Y-%m-%d")
 
@@ -3281,10 +3284,10 @@ class OnsetStatsArray:
         ax.axvline(onset_mean, c="darkorange", label="mean")
 
         # 1-sigma uncertainty shading
-        ax.axvspan(xmin=confidence_intervals[0][0], xmax=confidence_intervals[0][1], color="red", alpha=0.3, label=r"1-$\sigma$ confidence")
+        ax.axvspan(xmin=confidence_intervals1[0], xmax=confidence_intervals1[1], color="red", alpha=0.3, label=r"1-$\sigma$ confidence")
 
         #2-sigma uncertainty shading
-        ax.axvspan(xmin=confidence_intervals[1][0], xmax=confidence_intervals[1][1], color="blue", alpha=0.3, label=r"2-$\sigma$ confidence")
+        ax.axvspan(xmin=confidence_intervals2[0], xmax=confidence_intervals2[1], color="blue", alpha=0.3, label=r"2-$\sigma$ confidence")
 
 
         # x-axis settings:
@@ -3503,14 +3506,18 @@ def check_confidence_intervals(confidence_intervals, time_reso):
     of the time series data.
     """
 
-    center_of_intervals = datetime_mean(np.append(confidence_intervals[0],confidence_intervals[1]))
-
     new_intervals = []
     for interval in confidence_intervals:
 
         if interval[1] - interval[0] < pd.Timedelta(time_reso):
-            new_interval0, new_interval1 = center_of_intervals - pd.Timedelta(time_reso)/2, center_of_intervals + pd.Timedelta(time_reso)/2
+
+            # Calculate the center of this interval
+            center_of_interval = datetime_mean(np.array([interval[0], interval[1]]))
+
+            # Push the boundaries of the interval further from their center by half of the time resolution
+            new_interval0, new_interval1 = center_of_interval - pd.Timedelta(time_reso)/2, center_of_interval + pd.Timedelta(time_reso)/2
             new_intervals.append((new_interval0,new_interval1))
+
         else:
             new_intervals.append((interval[0], interval[1]))
 
