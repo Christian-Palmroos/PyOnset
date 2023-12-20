@@ -72,6 +72,14 @@ AXLABEL_FONTSIZE = 24
 TICK_LABELSIZE = 19
 TXTBOX_SIZE = 17
 
+COLOR_SCHEME = {
+    "median" : "red",
+    "mode" : "navy",
+    "mean" : "darkorange",
+    "1-sigma" : "red",
+    "2-sigma" : "blue"
+}
+
 # We recommend to have at least this many data points in the background for good statistics
 MIN_RECOMMENDED_POINTS = 100
 
@@ -2975,13 +2983,13 @@ class OnsetStatsArray:
         ax.set_ylim(ylims)
 
         # Mean, mode and median onset times as vertical solid lines
-        ax.axvline(stats["mean_onset"], linewidth=2.0, color="purple", label=f"mean {str(stats['mean_onset'].time())[:8]}", zorder=3)
-        ax.axvline(stats["most_likely_onset"][0], linewidth=2.0, color="blue", label=f"mode {str(stats['most_likely_onset'][0].time())[:8]}", zorder=3)
-        ax.axvline(stats["median_onset"], linewidth=2.0, color="red", label=f"median {str(stats['median_onset'].time())[:8]}", zorder=3)
+        ax.axvline(stats["mean_onset"], linewidth=2.0, color=COLOR_SCHEME["mean"], label=f"mean {str(stats['mean_onset'].time())[:8]}", zorder=3)
+        ax.axvline(stats["most_likely_onset"][0], linewidth=2.0, color=COLOR_SCHEME["mode"], label=f"mode {str(stats['most_likely_onset'][0].time())[:8]}", zorder=3)
+        ax.axvline(stats["median_onset"], linewidth=2.0, color=COLOR_SCHEME["median"], label=f"median {str(stats['median_onset'].time())[:8]}", zorder=3)
 
         # 1 -and 2-sigma intervals as red and blue dashed lines
-        ax.axvspan(xmin=stats["2-sigma_confidence_interval"][0], xmax=stats["2-sigma_confidence_interval"][1], color="blue", alpha=0.15, label="2-sigma", zorder=1)
-        ax.axvspan(xmin=stats["1-sigma_confidence_interval"][0], xmax=stats["1-sigma_confidence_interval"][1], color="red", alpha=0.15, label="1-sigma", zorder=1)
+        ax.axvspan(xmin=stats["2-sigma_confidence_interval"][0], xmax=stats["2-sigma_confidence_interval"][1], color=COLOR_SCHEME["2-sigma"], alpha=0.15, label="2-sigma", zorder=1)
+        ax.axvspan(xmin=stats["1-sigma_confidence_interval"][0], xmax=stats["1-sigma_confidence_interval"][1], color=COLOR_SCHEME["1-sigma"], alpha=0.15, label="1-sigma", zorder=1)
 
         ax.set_xlabel(f"Time ({stats['mean_onset'].strftime('%Y-%m-%d')})", fontsize=AXLABEL_FONTSIZE)
         ax.set_ylabel("PD", fontsize=AXLABEL_FONTSIZE)
@@ -3074,15 +3082,15 @@ class OnsetStatsArray:
         # We only want to have integer tickmarks
         ax.set_xticks(range(0,int(xaxis_int_times[-1]+1)))
 
-        ax.scatter(xaxis_int_times, means, s=165, label="mean", zorder=2, color="orange", marker=".")
-        ax.scatter(xaxis_int_times, medians, s=115, label="median", zorder=2, color="red", marker="^")
-        ax.scatter(xaxis_int_times, modes, s=115, label="mode", zorder=2, color="navy", marker="p")
+        ax.scatter(xaxis_int_times, means, s=165, label="mean", zorder=2, color=COLOR_SCHEME["mean"], marker=".")
+        ax.scatter(xaxis_int_times, medians, s=115, label="median", zorder=2, color=COLOR_SCHEME["median"], marker="^")
+        ax.scatter(xaxis_int_times, modes, s=115, label="mode", zorder=2, color=COLOR_SCHEME["mode"], marker="p")
 
-        ax.axhline(y=mean_of_medians, color="red", lw=2, label=f"Mean of median onsets: ({str(mean_of_medians.time())[:8]})")
-        ax.axhline(y=mean_of_modes, color="navy", lw=2, label=f"Mean of mode onsets: ({str(mean_of_modes.time())[:8]})")
+        ax.axhline(y=mean_of_medians, color=COLOR_SCHEME["median"], lw=2, label=f"Mean of median onsets: ({str(mean_of_medians.time())[:8]})")
+        ax.axhline(y=mean_of_modes, color=COLOR_SCHEME["mode"], lw=2, label=f"Mean of mode onsets: ({str(mean_of_modes.time())[:8]})")
 
-        ax.fill_between(xaxis_int_times, y1=conf1_lows, y2=conf1_highs, facecolor="red", alpha=0.3, zorder=1)
-        ax.fill_between(xaxis_int_times, y1=conf2_lows, y2=conf2_highs, facecolor="blue", alpha=0.3, zorder=1)
+        ax.fill_between(xaxis_int_times, y1=conf1_lows, y2=conf1_highs, facecolor=COLOR_SCHEME["1-sigma"], alpha=0.3, zorder=1)
+        ax.fill_between(xaxis_int_times, y1=conf2_lows, y2=conf2_highs, facecolor=COLOR_SCHEME["2-sigma"], alpha=0.3, zorder=1)
 
         # For some reason all the labelsizes appear smaller in the plots created with this method, which is 
         # why I add some extra size to them.
@@ -3279,15 +3287,15 @@ class OnsetStatsArray:
             self.linked_object.background.draw_background(ax=ax)
 
         # Vertical lines for the median, mode and mean of the distributions
-        ax.axvline(onset_median, c="red", label="median")
-        ax.axvline(onset_mode, c="blue", label="mode")
-        ax.axvline(onset_mean, c="darkorange", label="mean")
+        ax.axvline(onset_median, c=COLOR_SCHEME["median"], label="median")
+        ax.axvline(onset_mode, c=COLOR_SCHEME["mode"], label="mode")
+        ax.axvline(onset_mean, c=COLOR_SCHEME["mean"], label="mean")
 
         # 1-sigma uncertainty shading
-        ax.axvspan(xmin=confidence_intervals1[0], xmax=confidence_intervals1[1], color="red", alpha=0.3, label=r"1-$\sigma$ confidence")
+        ax.axvspan(xmin=confidence_intervals1[0], xmax=confidence_intervals1[1], color=COLOR_SCHEME["1-sigma"], alpha=0.3, label=r"1-$\sigma$ confidence")
 
         #2-sigma uncertainty shading
-        ax.axvspan(xmin=confidence_intervals2[0], xmax=confidence_intervals2[1], color="blue", alpha=0.3, label=r"2-$\sigma$ confidence")
+        ax.axvspan(xmin=confidence_intervals2[0], xmax=confidence_intervals2[1], color=COLOR_SCHEME["2-sigma"], alpha=0.3, label=r"2-$\sigma$ confidence")
 
 
         # x-axis settings:
