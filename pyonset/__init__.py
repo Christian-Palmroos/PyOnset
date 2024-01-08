@@ -2713,7 +2713,7 @@ class Onset(Event):
 # The class that holds background window length+position and bootstrapping parameters
 class BootstrapWindow:
 
-    def __init__(self, start, end, n_shifts=0, bootstraps=0):
+    def __init__(self, start, end, n_shifts=0, bootstraps=1):
         self.start = pd.to_datetime(start)
         self.end = pd.to_datetime(end)
         self.n_shifts = n_shifts
