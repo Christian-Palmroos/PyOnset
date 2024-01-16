@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-01-15
+@Updated: 2024-01-16
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -87,7 +87,7 @@ MIN_RECOMMENDED_POINTS = 100
 class Onset(Event):
 
     def __init__(self, start_date, end_date, spacecraft, sensor, species, data_level, data_path, viewing=None, radio_spacecraft=None, threshold=None,
-                 data=None, data_col=None, unit=None):
+                 data=None, unit=None):
 
         # By default we download data, not provide it
         if data is None:
@@ -95,7 +95,7 @@ class Onset(Event):
                     species, data_level, data_path, viewing, radio_spacecraft,
                     threshold)
             self.custom_data = False
-            self.unit = "Intensity [1/(cm^2 sr s MeV)]"
+            self.unit = "Intensity [1/(cm^2 sr s MeV)]" if unit is None else unit
 
         else:
 
@@ -113,7 +113,6 @@ class Onset(Event):
             self.data = data
             self.current_df_e = data
             self.current_df_i = data
-            self.data_col = data_col
             self.unit = unit
 
             # Custom data flag prevents SEPpy functions from being called, as they would cause errors
@@ -359,10 +358,12 @@ class Onset(Event):
             background_start, background_end = background_range.start, background_range.end
             self.background = background_range
 
+        # By default we do not use custom data
         if not self.custom_data:
             flux_series, en_channel_string = self.choose_flux_series(channels=channels, viewing=viewing)
         else:
-            flux_series, en_channel_string = self.data[self.data_col], self.data_col
+            flux_series, en_channel_string = self.data[channels], channels
+            self.last_used_channel = channels
 
         # Glitches from the data should really be erased BEFORE resampling data
         if erase is not None:
@@ -402,7 +403,7 @@ class Onset(Event):
         # The function finds the onset and returns a list of stats related to the onset
         # onset_stats = [ma, md, k_round, h, norm_channel, cusum, onset_time]
         onset_stats = onset_determination_v2(background_stats, flux_series, cusum_window, background_end, sigma)
-        
+
         # If the timestamp of onset is not NaT, then onset was found
         if not isinstance(onset_stats[-1],pd._libs.tslibs.nattype.NaTType):
             onset_found = True
@@ -414,7 +415,7 @@ class Onset(Event):
             print(f"mu and sigma of background intensity: \n{np.round(background_stats[0],2)}, {np.round(background_stats[1],2)}")
 
         # --Only plotting related code from this line onward ->
-        
+
         # Before starting the plot, save the original rcParam options and update to new ones
         original_rcparams = self.save_and_update_rcparams("onset_tool")
 
@@ -744,6 +745,7 @@ class Onset(Event):
             self.last_used_channel = channels
             channels = [channels]
 
+
         self.current_channel_id = channels[0]
 
         # Do not search for onset earlier than this point
@@ -758,7 +760,7 @@ class Onset(Event):
         if not self.custom_data:
             flux_series, self.recently_examined_channel_str = self.choose_flux_series(channels, viewing)
         else:
-            flux_series, self.recently_examined_channel_str = self.data[self.data_col], self.data_col
+            flux_series, self.recently_examined_channel_str = self.data[channels], channels
 
         # By default there will be a list containing timeseries indices of varying origins of offset
         if offset_origins and resample:
@@ -820,10 +822,17 @@ class Onset(Event):
 
 
         # These apply regardless of which series we choose, as they all have the same resolution and hence cusum_window
-        if not resample:
-            time_reso = f"{int(self.get_minimum_cadence().seconds/60)} min" if self.get_minimum_cadence().seconds > 59 else f"{int(self.get_minimum_cadence().seconds)} s"
+        if not self.custom_data:
+            if not resample:
+                time_reso = f"{int(self.get_minimum_cadence().seconds/60)} min" if self.get_minimum_cadence().seconds > 59 else f"{int(self.get_minimum_cadence().seconds)} s"
+            else:
+                time_reso = get_time_reso(list_of_series[0])
+
+        # in case of custom data: 
         else:
             time_reso = get_time_reso(list_of_series[0])
+            if not cusum_minutes:
+                raise Exception("Must provide a value for 'cusum_minutes' with custom data!")
 
         # If cusum_window was not explicitly stated, use a set of multiples of the time resolution as 
         # a set of cusum_windows
@@ -2297,9 +2306,11 @@ class Onset(Event):
             
             return stop_int
 
-        if not isinstance(channels,int):
-            if not isinstance(channels,list):
-                channels = int(channels)
+        # Check channel validity (if standard data)
+        if not self.custom_data:
+            if not isinstance(channels,int):
+                if not isinstance(channels,list):
+                    channels = int(channels)
 
         # Get the integer numbers that represent stop and/or limit_averaging in minutes
         if stop:
@@ -2550,6 +2561,8 @@ class Onset(Event):
         elif isinstance(channels, (tuple, list, range)):
             all_channels = channels
         elif isinstance(channels, (int, np.int64)):
+            all_channels = [channels]
+        elif isinstance(channels,str) and self.custom_data:
             all_channels = [channels]
         else:
             raise TypeError(f"{type(channels)} is and incorrect type of argument 'channels'! It should be None, str=='all', tuple, list or range.")
@@ -4002,21 +4015,26 @@ def get_time_reso(series):
             Pandas-compatible freqstr
     """
 
-    for i in range(len(series)):
-        try:
-            resolution = (series.index[i+1] - series.index[i]).seconds
-            break
-        except AttributeError:
-            continue
+    if series.index.freq is None:
 
-    # STEREO data often looks like 59s resolution
-    if resolution==59:
-        return "1min"
+        for i in range(len(series)):
+            try:
+                resolution = (series.index[i+1] - series.index[i]).seconds
+                break
+            except AttributeError:
+                continue
 
-    if resolution%60==0:
-        return f'{int(resolution/60)}min'
+        # STEREO data often looks like 59s resolution
+        if resolution==59:
+            return "1 min"
+
+        if resolution%60==0:
+            return f'{int(resolution/60)} min'
+        else:
+            return f"{resolution} s"
+    
     else:
-        return f"{resolution}s"
+        return series.index.freq
 
 #===========================================================================================
 
@@ -4492,18 +4510,25 @@ def calculate_cusum_window(time_reso, window_minutes:int=30) -> int:
                 Cusum window in terms of datapoints.
     """
 
+    if isinstance(time_reso, pd._libs.tslibs.offsets.Minute):
+        time_reso = time_reso.freqstr
+
     if time_reso[-3:] == "min":
         datapoint_multiplier = 1
         reso_value = float(time_reso[:-3])
+    elif time_reso[-1] == 'T':
+        datapoint_multiplier = 1
+        reso_value = float(time_reso[:-1])
     elif time_reso[-1] == 's':
         datapoint_multiplier = 60
         reso_value = int(time_reso[:-1])
     else:
-        raise Exception("Time resolution format not recognized. Use either 'min' or 's'.")
+        raise Exception(f"Time resolution format ({time_reso}) not recognized. Use either 'min' or 's'.")
 
     cusum_window = (window_minutes*datapoint_multiplier)/reso_value
     
     return int(cusum_window)
+
 
 
 def set_fig_ylimits(ax:plt.Axes, ylim:(list,tuple)=None, flux_series:pd.Series=None):
