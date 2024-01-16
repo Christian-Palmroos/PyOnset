@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2023-12-20
+@Updated: 2024-01-15
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -67,10 +67,10 @@ STANDARD_FIGSIZE = (21,9)
 VDA_FIGSIZE = (16,9)
 C_SQUARED = const.c.value*const.c.value
 BACKGROUND_ALPHA = 0.15 # used for the background shading when plotting
-TITLE_FONTSIZE = 28
-AXLABEL_FONTSIZE = 24
-TICK_LABELSIZE = 19
-TXTBOX_SIZE = 17
+TITLE_FONTSIZE = 30
+AXLABEL_FONTSIZE = 26
+TICK_LABELSIZE = 21
+TXTBOX_SIZE = 19
 
 COLOR_SCHEME = {
     "median" : "red",
@@ -86,10 +86,41 @@ MIN_RECOMMENDED_POINTS = 100
 # A new class to inherit everything from serpentine Event, and to extend its scope of functionality
 class Onset(Event):
 
-    def __init__(self, start_date, end_date, spacecraft, sensor, species, data_level, data_path, viewing=None, radio_spacecraft=None, threshold=None):
-        super().__init__(start_date, end_date, spacecraft, sensor,
-                 species, data_level, data_path, viewing, radio_spacecraft,
-                 threshold)
+    def __init__(self, start_date, end_date, spacecraft, sensor, species, data_level, data_path, viewing=None, radio_spacecraft=None, threshold=None,
+                 data=None, data_col=None, unit=None):
+
+        # By default we download data, not provide it
+        if data is None:
+            super().__init__(start_date, end_date, spacecraft, sensor,
+                    species, data_level, data_path, viewing, radio_spacecraft,
+                    threshold)
+            self.custom_data = False
+            self.unit = "Intensity [1/(cm^2 sr s MeV)]"
+
+        else:
+
+            self.start_date = start_date
+            self.end_date = end_date
+            self.spacecraft = spacecraft
+            self.sensor = sensor
+            self.species = species
+            self.data_level = data_level
+            self.data_path = data_path
+            self.viewing = viewing
+            self.radio_spacecraft = radio_spacecraft
+            self.threshold = threshold
+
+            self.data = data
+            self.current_df_e = data
+            self.current_df_i = data
+            self.data_col = data_col
+            self.unit = unit
+
+            # Custom data flag prevents SEPpy functions from being called, as they would cause errors
+            self.custom_data = True
+
+            # Lets the user know that the object is initialized with custom settings
+            print("Unidentified spacecraft-sensor combination.")
 
         # Everytime an onset is found any way, the last used channel should be updated
         self.last_used_channel = np.NaN
@@ -103,6 +134,16 @@ class Onset(Event):
 
         # This will turn true once the extensive statistics analysis is run
         self.mean_of_medians_onset_acquired = False
+
+        # Choosing the particle species identifier for the titles etc
+        if self.species in ["electron", "electrons", 'e']:
+            self.s_identifier = "electrons"
+        elif self.species in ["proton", "protons", 'p', 'H']:
+            self.s_identifier = "protons"
+        elif self.species in ["ion", "ions", 'i']:
+            self.s_identifier = "ions"
+        else:
+            self.s_identifier = self.species
 
         # This is a check to make sure viewing is correctly set for single-aperture instruments
         if self.viewing:
@@ -149,19 +190,19 @@ class Onset(Event):
         # This is a dictionary that holds the information of each instrument's minimum time resolution. That value
         # will be used in the case that cusum-bootstrap yields uncertainty smaller than that.
         self.minimum_cadences = {
-            "bepicolombo_sixs-p" : pd.Timedelta("8s"),
-            "psp_isois-epihi" : pd.Timedelta("1min"),
-            "psp_isois-epilo" : pd.Timedelta("1min"),
-            "soho_erne" : pd.Timedelta("1min"),
-            "soho_ephin" : pd.Timedelta("1min"),
-            "sta_sept" : pd.Timedelta("1min"),
-            "sta_het" : pd.Timedelta("1min"),
-            "stb_sept" : pd.Timedelta("1min"),
-            "stb_het" : pd.Timedelta("1min"),
-            "solo_step" : pd.Timedelta("1s"),
-            "solo_ept" : pd.Timedelta("1s"),
-            "solo_het" : pd.Timedelta("1s"),
-            "wind_3dp" : pd.Timedelta("12s")
+            "bepicolombo_sixs-p" : pd.Timedelta("8 s"),
+            "psp_isois-epihi" : pd.Timedelta("1 min"),
+            "psp_isois-epilo" : pd.Timedelta("1 min"),
+            "soho_erne" : pd.Timedelta("1 min"),
+            "soho_ephin" : pd.Timedelta("1 min"),
+            "sta_sept" : pd.Timedelta("1 min"),
+            "sta_het" : pd.Timedelta("1 min"),
+            "stb_sept" : pd.Timedelta("1 min"),
+            "stb_het" : pd.Timedelta("1 min"),
+            "solo_step" : pd.Timedelta("1 s"),
+            "solo_ept" : pd.Timedelta("1 s"),
+            "solo_het" : pd.Timedelta("1 s"),
+            "wind_3dp" : pd.Timedelta("12 s")
         }
 
     def check_viewing(self, returns=False):
@@ -195,7 +236,10 @@ class Onset(Event):
         return self.all_channels[f"{self.spacecraft}_{self.sensor}_{self.species}"]
 
     def get_minimum_cadence(self):
-        return self.minimum_cadences[f"{self.spacecraft}_{self.sensor}"]
+        try:
+            return self.minimum_cadences[f"{self.spacecraft}_{self.sensor}"]
+        except KeyError:
+            return pd.Timedelta(self.data.index.freq)
 
     def get_time_resolution_str(self, resample):
         # Choose resample as the averaging string if it exists
@@ -206,7 +250,10 @@ class Onset(Event):
             time_reso_str = f"{self.get_minimum_cadence().seconds} s data"
         # If at least 60 seconds, address the cadence in minutes
         else:
-            time_reso_str = f"{int(self.get_minimum_cadence().seconds/60)} min data"
+            try:
+                time_reso_str = f"{int(self.get_minimum_cadence().seconds/60)} min data"
+            except ValueError:
+                time_reso_str = "Unidentified time resolution"
 
         return time_reso_str
 
@@ -312,7 +359,10 @@ class Onset(Event):
             background_start, background_end = background_range.start, background_range.end
             self.background = background_range
 
-        flux_series, en_channel_string = self.choose_flux_series(channels=channels, viewing=viewing)
+        if not self.custom_data:
+            flux_series, en_channel_string = self.choose_flux_series(channels=channels, viewing=viewing)
+        else:
+            flux_series, en_channel_string = self.data[self.data_col], self.data_col
 
         # Glitches from the data should really be erased BEFORE resampling data
         if erase is not None:
@@ -450,33 +500,25 @@ class Onset(Event):
                 ax.axvspan(xmin=self.conf2_low, xmax=self.conf2_high, color="blue", alpha=0.3, label=r"2~\sigma")
 
 
-        ax.set_xlabel("Time", fontsize=AXLABEL_FONTSIZE)
-        ax.set_ylabel(f"Intensity [1/(cm^2 sr s MeV)]", fontsize=AXLABEL_FONTSIZE)
+        ax.set_xlabel(f"Time ({time[0].year})", fontsize=AXLABEL_FONTSIZE)
+        ax.set_ylabel(self.unit, fontsize=AXLABEL_FONTSIZE)
 
         # Date tick locator and formatter
         ax.xaxis_date()
         set_standard_ticks(ax=ax)
 
-        utc_dt_format1 = DateFormatter('%H:%M \n%Y-%m-%d')
+        utc_dt_format1 = DateFormatter('%H:%M \n%m-%d')
         ax.xaxis.set_major_formatter(utc_dt_format1)
 
         # Setting the title
         if title is None:
 
-            # Choosing the particle species identifier for the title
-            if self.species in ["electron", 'e']:
-                s_identifier = 'electrons'
-            if self.species in ["proton", 'p', 'H']:
-                s_identifier = 'protons'
-            if self.species in ["ion", 'i']:
-                s_identifier = 'ions'
-
             time_reso_str = self.get_time_resolution_str(resample=resample)
 
             if viewing:
-                ax.set_title(f"{spacecraft}/{self.sensor.upper()}({viewing}) {en_channel_string} {s_identifier}\n{time_reso_str}", fontsize=TITLE_FONTSIZE)
+                ax.set_title(f"{spacecraft}/{self.sensor.upper()} ({viewing}) {en_channel_string} {self.s_identifier}\n{time_reso_str}", fontsize=TITLE_FONTSIZE)
             else:
-                ax.set_title(f"{spacecraft}/{self.sensor.upper()} {en_channel_string} {s_identifier}\n{time_reso_str}", fontsize=TITLE_FONTSIZE)
+                ax.set_title(f"{spacecraft}/{self.sensor.upper()} {en_channel_string} {self.s_identifier}\n{time_reso_str}", fontsize=TITLE_FONTSIZE)
 
         else:
             ax.set_title(title, fontsize=TITLE_FONTSIZE)
@@ -713,7 +755,10 @@ class Onset(Event):
 
         # Choose the right intensity time series according to channel and viewing direction.
         # Also remember which channel was examined most recently.
-        flux_series, self.recently_examined_channel_str = self.choose_flux_series(channels, viewing)
+        if not self.custom_data:
+            flux_series, self.recently_examined_channel_str = self.choose_flux_series(channels, viewing)
+        else:
+            flux_series, self.recently_examined_channel_str = self.data[self.data_col], self.data_col
 
         # By default there will be a list containing timeseries indices of varying origins of offset
         if offset_origins and resample:
@@ -2929,7 +2974,7 @@ class OnsetStatsArray:
         self.integration_times.append(int_time) if str(delta_min)[:7] != "0.98333" else self.integration_times.append("1 min")
 
 
-    def onset_time_histogram(self, integration_time_index=0, binwidth="1 min", xlims=None, ylims=None, legend_loc=1,
+    def onset_time_histogram(self, integration_time_index=0, binwidth="1 min", xlim=None, ylims=None, legend_loc=1,
                             save=False, savepath=None, grid=True):
         """
         A method to display the probability density histogram for the distribution of onset times collected
@@ -2952,16 +2997,16 @@ class OnsetStatsArray:
         grid : {bool}, default True
                                     Boolean switch to apply gridlines.
         """
-       
+
         stats = self.archive[integration_time_index]
 
         # Plotting 
         fig, ax = plt.subplots(figsize=STANDARD_FIGSIZE)
 
         # If xlims not manually defined, let them be \pm 2 minutes from the first and last onset of the distribution
-        if not xlims:
-            xlims = (np.nanmin(stats["onset_list"]) - pd.Timedelta(minutes=2), np.nanmax(stats["onset_list"]) + pd.Timedelta(minutes=2))
-        ax.set_xlim(xlims)
+        if not xlim:
+            xlim = (np.nanmin(stats["onset_list"]) - pd.Timedelta(minutes=2), np.nanmax(stats["onset_list"]) + pd.Timedelta(minutes=2))
+        ax.set_xlim(xlim)
 
         # Show percentage on y-axis
         yvalues = [m/10 for m in range(0,11)]
@@ -2971,7 +3016,7 @@ class OnsetStatsArray:
 
         # Bins for the x axis 
         half_bin = pd.Timedelta(seconds=30)
-        bins = pd.date_range(start=xlims[0]+half_bin, end=xlims[1]+half_bin, freq=binwidth).tolist()
+        bins = pd.date_range(start=xlim[0]+half_bin, end=xlim[1]+half_bin, freq=binwidth).tolist()
 
         onset_frequencies = np.ones_like(stats["onset_list"])/len(stats["onset_list"])
 
@@ -3056,12 +3101,6 @@ class OnsetStatsArray:
         conf2_lows = [pair[0] for pair in confidence_interval_2sigma]
         conf2_highs = [pair[1] for pair in confidence_interval_2sigma]
 
-        # For plotting the mean of medians and modes lines (pandas series allows for computing the mean of datetimes)
-        # median_series = pd.Series(medians)
-        # mode_series = pd.Series(modes)
-        # mean_of_medians = median_series.mean()
-        # mean_of_modes = mode_series.mean()
-
         # these are the real weighted mode and median
         mean_of_modes = self.linked_object.onset_statistics[self.channel_id][0]
         mean_of_medians = self.linked_object.onset_statistics[self.channel_id][1]
@@ -3086,8 +3125,8 @@ class OnsetStatsArray:
         ax.scatter(xaxis_int_times, medians, s=115, label="median", zorder=2, color=COLOR_SCHEME["median"], marker="^")
         ax.scatter(xaxis_int_times, modes, s=115, label="mode", zorder=2, color=COLOR_SCHEME["mode"], marker="p")
 
-        ax.axhline(y=mean_of_medians, color=COLOR_SCHEME["median"], lw=2, label=f"Mean of median onsets: ({str(mean_of_medians.time())[:8]})")
-        ax.axhline(y=mean_of_modes, color=COLOR_SCHEME["mode"], lw=2, label=f"Mean of mode onsets: ({str(mean_of_modes.time())[:8]})")
+        ax.axhline(y=mean_of_medians, color=COLOR_SCHEME["median"], lw=2, label=f"Mean of median onsets:\n{str(mean_of_medians.time())[:8]}")
+        ax.axhline(y=mean_of_modes, color=COLOR_SCHEME["mode"], lw=2, label=f"Mean of mode onsets:\n{str(mean_of_modes.time())[:8]}")
 
         ax.fill_between(xaxis_int_times, y1=conf1_lows, y2=conf1_highs, facecolor=COLOR_SCHEME["1-sigma"], alpha=0.3, zorder=1)
         ax.fill_between(xaxis_int_times, y1=conf2_lows, y2=conf2_highs, facecolor=COLOR_SCHEME["2-sigma"], alpha=0.3, zorder=1)
@@ -3099,8 +3138,8 @@ class OnsetStatsArray:
         ax.set_ylabel(f"{figdate}\nTime [HH:MM]", fontsize=AXLABEL_FONTSIZE+6)
 
         if not title:
-            particle_str = "electrons" if self.species=='e' else "protons" if self.species=='p' else "ions"
-            ax.set_title(f"{self.spacecraft.upper()}/{self.sensor.upper()} ({self.channel_str}) {particle_str}\ndata integration time vs. onset distribution stats", 
+            # particle_str = "electrons" if self.species=='e' else "protons" if self.species=='p' else "ions"
+            ax.set_title(f"{self.spacecraft.upper()}/{self.sensor.upper()} ({self.channel_str}) {self.linked_object.s_identifier}\ndata integration time vs. onset distribution stats", 
                          fontsize=TITLE_FONTSIZE+9)
         else:
             ax.set_title(title, fontsize=TITLE_FONTSIZE+9)
@@ -3117,7 +3156,7 @@ class OnsetStatsArray:
         if save:
             if not savepath:
                 savepath = CURRENT_PATH
-            plt.savefig(f"{savepath}{os.sep}int_time_vs_onset_distribution_stats_{self.spacecraft}_{self.sensor}_{particle_str}.png", transparent=False,
+            plt.savefig(f"{savepath}{os.sep}int_time_vs_onset_distribution_stats_{self.spacecraft}_{self.sensor}_{self.linked_object.s_identifier}.png", transparent=False,
                         facecolor='white', bbox_inches='tight')
 
         plt.show()
@@ -3186,7 +3225,7 @@ class OnsetStatsArray:
         ax.set_ylim(ylim)
 
         ax.set_yscale("log")
-        ax.set_ylabel("Intensity [1/(cm^2 sr s MeV)]", fontsize=AXLABEL_FONTSIZE)
+        ax.set_ylabel(self.linked_object.unit, fontsize=AXLABEL_FONTSIZE)
         ax.set_xlabel(f"Time ({figdate})", fontsize=AXLABEL_FONTSIZE)
 
         # The intensity data, kw where dictates where the step happens. "mid" for the middle of the bin
@@ -3220,16 +3259,16 @@ class OnsetStatsArray:
             raise ValueError(f"Argument legend_loc has to be either 'in' or 'out', not {legend_loc}")
         ax.legend(loc=legend_handle, bbox_to_anchor=legend_bbox, prop={"size": 12})
 
-        particle_str = "electrons" if self.species=='e' else "protons" if self.species=='p' else "ions"
+        # particle_str = "electrons" if self.species=='e' else "protons" if self.species=='p' else "ions"
         
         int_time_str = f"{self.integration_times[integration_time_index]} integration time" if pd.Timedelta(self.integration_times[integration_time_index]) != self.linked_object.get_minimum_cadence() else f"{self.integration_times[integration_time_index]} data"
         # int_time_str = f"{self.integration_times[index]} integration time" if index != 0 else f"{int(self.linked_object.get_minimum_cadence().seconds/60)} min data" if self.linked_object.get_minimum_cadence().seconds>59 else f"{self.linked_object.get_minimum_cadence().seconds} s data"
-        ax.set_title(f"{self.spacecraft.upper()}/{self.sensor.upper()} ({self.channel_str}) {particle_str}\nOnset distribution ({int_time_str})", fontsize=TITLE_FONTSIZE)
+        ax.set_title(f"{self.spacecraft.upper()}/{self.sensor.upper()} ({self.channel_str}) {self.linked_object.s_identifier}\nOnset distribution ({int_time_str})", fontsize=TITLE_FONTSIZE)
 
         if save:
             if not savepath:
                 savepath = CURRENT_PATH
-            plt.savefig(f"{savepath}{os.sep}onset_distribution_{self.spacecraft}_{self.sensor}_{particle_str}.png", transparent=False,
+            plt.savefig(f"{savepath}{os.sep}onset_distribution_{self.spacecraft}_{self.sensor}_{self.linked_object.s_identifier}.png", transparent=False,
                         facecolor="white", bbox_inches="tight")
 
         plt.show()
@@ -3320,20 +3359,20 @@ class OnsetStatsArray:
 
         ax.set_ylim(ylim)
         ax.set_yscale("log")
-        ax.set_ylabel("Intensity [1/(cm^2 sr s MeV)]", fontsize=AXLABEL_FONTSIZE)
+        ax.set_ylabel(self.linked_object.unit, fontsize=AXLABEL_FONTSIZE)
         ax.set_xlabel(f"Time ({figdate})", fontsize=AXLABEL_FONTSIZE)
 
         ax.legend()
 
-        particle_str = "electrons" if self.species=='e' else "protons" if self.species=='p' else "ions"
+        # particle_str = "electrons" if self.species=='e' else "protons" if self.species=='p' else "ions"
         int_time_str = f"{self.integration_times[integration_time_index]} integration time" if pd.Timedelta(self.integration_times[integration_time_index]) != self.linked_object.get_minimum_cadence() else f"{self.integration_times[integration_time_index]} data"
         # int_time_str = f"{self.integration_times[index]} integration time" if index != 0 else f"{int(self.linked_object.get_minimum_cadence().seconds/60)} min data" if self.linked_object.get_minimum_cadence().seconds>59 else f"{self.linked_object.get_minimum_cadence().seconds} s data"
-        ax.set_title(f"{self.spacecraft.upper()}/{self.sensor.upper()} ({self.channel_str}) {particle_str}\nOnset statistics ({int_time_str})", fontsize=TITLE_FONTSIZE)
+        ax.set_title(f"{self.spacecraft.upper()}/{self.sensor.upper()} ({self.channel_str}) {self.linked_object.s_identifier}\nOnset statistics ({int_time_str})", fontsize=TITLE_FONTSIZE)
 
         if save:
             if not savepath:
                 savepath = CURRENT_PATH
-            plt.savefig(f"{savepath}{os.sep}onset_statistics_{self.spacecraft}_{self.sensor}_{particle_str}.png", transparent=False,
+            plt.savefig(f"{savepath}{os.sep}onset_statistics_{self.spacecraft}_{self.sensor}_{self.linked_object.s_identifier}.png", transparent=False,
                         facecolor='white', bbox_inches='tight')
 
         plt.show()
@@ -4491,9 +4530,11 @@ def set_standard_ticks(ax):
     """
     Handles tickmarks, their sizes etc...
     """
+    ticklen = 10
+    tickw = 2.6
 
-    ax.tick_params(which='major', length=8, width=2.2, labelsize=TICK_LABELSIZE)
-    ax.tick_params(which='minor', length=6, width=1.8)
+    ax.tick_params(which='major', length=ticklen, width=tickw, labelsize=TICK_LABELSIZE)
+    ax.tick_params(which='minor', length=ticklen-3, width=tickw-0.6)
 
 
 def get_figdate(dt_array):
