@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-01-16
+@Updated: 2024-01-22
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -4489,7 +4489,7 @@ def seek_fit_and_errors(x,y,xerr,yerr, guess=None):
 
     # The built-in pprint method can be used to show the results
     # out.pprint()
-    
+
     return out
 
 
@@ -4510,7 +4510,7 @@ def calculate_cusum_window(time_reso, window_minutes:int=30) -> int:
                 Cusum window in terms of datapoints.
     """
 
-    if isinstance(time_reso, pd._libs.tslibs.offsets.Minute):
+    if isinstance(time_reso, (pd._libs.tslibs.offsets.Second, pd._libs.tslibs.offsets.Minute, pd._libs.tslibs.offsets.Hour)):
         time_reso = time_reso.freqstr
 
     if time_reso[-3:] == "min":
@@ -4518,6 +4518,8 @@ def calculate_cusum_window(time_reso, window_minutes:int=30) -> int:
         reso_value = float(time_reso[:-3])
     elif time_reso[-1] == 'T':
         datapoint_multiplier = 1
+    elif time_reso[-1] == 'H':
+        datapoint_multiplier = 1/60
         reso_value = float(time_reso[:-1])
     elif time_reso[-1] == 's':
         datapoint_multiplier = 60
