@@ -4518,6 +4518,7 @@ def calculate_cusum_window(time_reso, window_minutes:int=30) -> int:
         reso_value = float(time_reso[:-3])
     elif time_reso[-1] == 'T':
         datapoint_multiplier = 1
+        reso_value = int(time_reso[:-1])
     elif time_reso[-1] == 'H':
         datapoint_multiplier = 1/60
         reso_value = float(time_reso[:-1])
