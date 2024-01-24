@@ -2294,15 +2294,20 @@ class Onset(Event):
             """
 
             if isinstance(stop, str):
-                    if stop[-3:] == "min":
+                    if stop[-3:] == "min" or stop[-1:] == 'T':
                         split_str = "min"
                         divisor = 1
+                    elif stop[-1:] == 'H':
+                        split_str = "h"
+                        divisor = 1/60
                     elif stop[-1:] == 's':
                         split_str = 's'
                         divisor = 60
+                    else:
+                        raise ValueError(f"{stop} is an incorrect value for parameter 'average_to'")
                     stop_int = int(stop.split(split_str)[0])//divisor
             else:
-                raise ValueError("Time string has to pandas-compatible time string, e.g., '15min' or '60s'.")
+                raise ValueError("Time string has to pandas-compatible time string, e.g., '15 min' or '60 s'.")
             
             return stop_int
 
