@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-01-22
+@Updated: 2024-02-01
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -468,7 +468,8 @@ class Onset(Event):
                         label="onset time")
 
             # Textbox indicating onset time
-            plabel = AnchoredText(f" {str(onset_stats[-1])[:19]} ", prop=dict(size=TXTBOX_SIZE), frameon=True, loc=(4) )
+            onset_timestr = onset_stats[-1].strftime("%H:%M:%S")
+            plabel = AnchoredText(f"Onset time: {onset_timestr} ", prop=dict(size=TXTBOX_SIZE), frameon=True, loc="lower right") #str(onset_stats[-1])[:19]
             plabel.patch.set_boxstyle("round, pad=0., rounding_size=0.2")
             plabel.patch.set_linewidth(2.0)
             ax.add_artist(plabel)
@@ -497,8 +498,8 @@ class Onset(Event):
                 ax.axvline(x=self.mean_of_medians_onset, linewidth=1.5, color="magenta", linestyle='-',
                         label="mean of medians onset")
 
-                ax.axvspan(xmin=self.conf1_low, xmax=self.conf1_high, color="red", alpha=0.3, label=r"1~\sigma")
-                ax.axvspan(xmin=self.conf2_low, xmax=self.conf2_high, color="blue", alpha=0.3, label=r"2~\sigma")
+                ax.axvspan(xmin=self.conf1_low, xmax=self.conf1_high, color="red", alpha=0.3, label="~68 % confidence")
+                ax.axvspan(xmin=self.conf2_low, xmax=self.conf2_high, color="blue", alpha=0.3, label="~95 % confidence")
 
 
         ax.set_xlabel(f"Time ({time[0].year})", fontsize=AXLABEL_FONTSIZE)
@@ -1485,10 +1486,10 @@ class Onset(Event):
         if prints:
             print(f"The median onset time is: {str(median_onset.time())[:8]}")
             # print(f"The np.percentile()-calculated median onset time (50th percentile) is: {str(median_onset.time())[:8]}")
-            display(Markdown(r"Confidence interval for 1- $\sigma$:"))
+            display(Markdown("~68 % confidence interval"))
             print(f"{str(confidence_intervals_all[0].time())[:8]} - {str(confidence_intervals_all[1].time())[:8]}")
             print(" ")
-            display(Markdown(r"Confidence interval for 2- $\sigma$:"))
+            display(Markdown("~95 % confidence interval"))
             print(f"{str(confidence_intervals_all[2].time())[:8]} - {str(confidence_intervals_all[3].time())[:8]}")
 
         plt.show()
@@ -2517,7 +2518,8 @@ class Onset(Event):
         viewing : {str}
                     The viewing direction if the instrument.
         erase : {tuple(float, str)}, optional
-                    loepreuinm impasum
+                    If there are spikes in the background one wishes to omit, set the threshold value and ending point for ignoring those
+                    values here. Example: [1000, '2022-05-10 12:00'] discards all values 1000 or above until 2022-05-10 noon.
         cusum_minutes : {int, float}, optional
                     The amount of MINUTES that the method will demand for continuous threshold-axceeding intensity before identifying
                     an onset. 
@@ -2813,9 +2815,14 @@ class BootstrapWindow:
         ax : {plt.Axes}
                 The axes of the figure.
         """
-
         ax.axvspan(xmin=self.start, xmax=self.end,
                         color="#e41a1c", label="Background", alpha=BACKGROUND_ALPHA)
+    
+        # Textbox indicating onset time
+        blabel = AnchoredText(f"Background:\n{self.start} - {self.end}", prop=dict(size=TXTBOX_SIZE), frameon=True, loc="upper left")
+        blabel.patch.set_boxstyle("round, pad=0., rounding_size=0.2")
+        blabel.patch.set_linewidth(2.0)
+        ax.add_artist(blabel)
 
     def print_max_recommended_reso(self):
         f"""
@@ -3349,10 +3356,10 @@ class OnsetStatsArray:
         ax.axvline(onset_mean, c=COLOR_SCHEME["mean"], label="mean")
 
         # 1-sigma uncertainty shading
-        ax.axvspan(xmin=confidence_intervals1[0], xmax=confidence_intervals1[1], color=COLOR_SCHEME["1-sigma"], alpha=0.3, label=r"1-$\sigma$ confidence")
+        ax.axvspan(xmin=confidence_intervals1[0], xmax=confidence_intervals1[1], color=COLOR_SCHEME["1-sigma"], alpha=0.3, label="~68 % confidence")
 
         #2-sigma uncertainty shading
-        ax.axvspan(xmin=confidence_intervals2[0], xmax=confidence_intervals2[1], color=COLOR_SCHEME["2-sigma"], alpha=0.3, label=r"2-$\sigma$ confidence")
+        ax.axvspan(xmin=confidence_intervals2[0], xmax=confidence_intervals2[1], color=COLOR_SCHEME["2-sigma"], alpha=0.3, label="~95 % confidence")
 
 
         # x-axis settings:
@@ -3468,10 +3475,10 @@ class OnsetStatsArray:
         if prints:
             print(f"The median onset time is: {str(median_onset.time())[:8]}")
             # print(f"The np.percentile()-calculated median onset time (50th percentile) is: {str(median_onset.time())[:8]}")
-            display(Markdown(r"Confidence interval for 1- $\sigma$:"))
+            display(Markdown("~68 % confidence interval"))
             print(f"{str(confidence_intervals_all[0].time())[:8]} - {str(confidence_intervals_all[1].time())[:8]}")
             print(" ")
-            display(Markdown(r"Confidence interval for 2- $\sigma$:"))
+            display(Markdown("~95 % confidence interval"))
             print(f"{str(confidence_intervals_all[2].time())[:8]} - {str(confidence_intervals_all[3].time())[:8]}")
 
         plt.show()
