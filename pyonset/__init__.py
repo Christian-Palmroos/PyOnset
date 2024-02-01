@@ -69,7 +69,7 @@ C_SQUARED = const.c.value*const.c.value
 BACKGROUND_ALPHA = 0.15 # used for the background shading when plotting
 TITLE_FONTSIZE = 30
 AXLABEL_FONTSIZE = 26
-TICK_LABELSIZE = 21
+TICK_LABELSIZE = 22
 TXTBOX_SIZE = 19
 
 COLOR_SCHEME = {
@@ -3051,6 +3051,8 @@ class OnsetStatsArray:
         if not ylims:
             ylims = (0, np.nanmax(bar_heights)+0.02)
         ax.set_ylim(ylims)
+    
+        set_standard_ticks(ax=ax)
 
         # Mean, mode and median onset times as vertical solid lines
         ax.axvline(stats["mean_onset"], linewidth=2.0, color=COLOR_SCHEME["mean"], label=f"mean {str(stats['mean_onset'].time())[:8]}", zorder=3)
@@ -3058,8 +3060,8 @@ class OnsetStatsArray:
         ax.axvline(stats["median_onset"], linewidth=2.0, color=COLOR_SCHEME["median"], label=f"median {str(stats['median_onset'].time())[:8]}", zorder=3)
 
         # 1 -and 2-sigma intervals as red and blue dashed lines
-        ax.axvspan(xmin=stats["2-sigma_confidence_interval"][0], xmax=stats["2-sigma_confidence_interval"][1], color=COLOR_SCHEME["2-sigma"], alpha=0.15, label="2-sigma", zorder=1)
-        ax.axvspan(xmin=stats["1-sigma_confidence_interval"][0], xmax=stats["1-sigma_confidence_interval"][1], color=COLOR_SCHEME["1-sigma"], alpha=0.15, label="1-sigma", zorder=1)
+        ax.axvspan(xmin=stats["2-sigma_confidence_interval"][0], xmax=stats["2-sigma_confidence_interval"][1], color=COLOR_SCHEME["2-sigma"], alpha=0.15, label="~95 % confidence", zorder=1)
+        ax.axvspan(xmin=stats["1-sigma_confidence_interval"][0], xmax=stats["1-sigma_confidence_interval"][1], color=COLOR_SCHEME["1-sigma"], alpha=0.15, label="~68 % confidence", zorder=1)
 
         ax.set_xlabel(f"Time ({stats['mean_onset'].strftime('%Y-%m-%d')})", fontsize=AXLABEL_FONTSIZE)
         ax.set_ylabel("PD", fontsize=AXLABEL_FONTSIZE)
@@ -3283,9 +3285,7 @@ class OnsetStatsArray:
         else:
             raise ValueError(f"Argument legend_loc has to be either 'in' or 'out', not {legend_loc}")
         ax.legend(loc=legend_handle, bbox_to_anchor=legend_bbox, prop={"size": 12})
-
-        # particle_str = "electrons" if self.species=='e' else "protons" if self.species=='p' else "ions"
-        
+       
         int_time_str = f"{self.integration_times[integration_time_index]} integration time" if pd.Timedelta(self.integration_times[integration_time_index]) != self.linked_object.get_minimum_cadence() else f"{self.integration_times[integration_time_index]} data"
         # int_time_str = f"{self.integration_times[index]} integration time" if index != 0 else f"{int(self.linked_object.get_minimum_cadence().seconds/60)} min data" if self.linked_object.get_minimum_cadence().seconds>59 else f"{self.linked_object.get_minimum_cadence().seconds} s data"
         ax.set_title(f"{self.spacecraft.upper()}/{self.sensor.upper()} ({self.channel_str}) {self.linked_object.s_identifier}\nOnset distribution ({int_time_str})", fontsize=TITLE_FONTSIZE)
@@ -4570,11 +4570,11 @@ def set_standard_ticks(ax):
     """
     Handles tickmarks, their sizes etc...
     """
-    ticklen = 10
-    tickw = 2.6
+    ticklen = 11
+    tickw = 2.8
 
-    ax.tick_params(which='major', length=ticklen, width=tickw, labelsize=TICK_LABELSIZE)
-    ax.tick_params(which='minor', length=ticklen-3, width=tickw-0.6)
+    ax.tick_params(which="major", length=ticklen, width=tickw, labelsize=TICK_LABELSIZE)
+    ax.tick_params(which="minor", length=ticklen-3, width=tickw-0.6)
 
 
 def get_figdate(dt_array):
