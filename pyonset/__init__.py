@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-02-01
+@Updated: 2024-02-06
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -786,7 +786,7 @@ class Onset(Event):
                 # These are a random numbers to access any of the indices in the list of indices.
                 # Calculated beforehand to save computation time.
                 random_choices = np.random.randint(data_res, size=Window.bootstraps)
-            
+
             else:
                 list_of_series = [flux_series]
                 list_of_indices = [flux_series.index]
@@ -4524,19 +4524,20 @@ def calculate_cusum_window(time_reso, window_minutes:int=30) -> int:
 
     if isinstance(time_reso, (pd._libs.tslibs.offsets.Second, pd._libs.tslibs.offsets.Minute, pd._libs.tslibs.offsets.Hour)):
         time_reso = time_reso.freqstr
+        print(time_reso)
 
     if time_reso[-3:] == "min":
         datapoint_multiplier = 1
         reso_value = float(time_reso[:-3])
     elif time_reso[-1] == 'T':
         datapoint_multiplier = 1
-        reso_value = int(time_reso[:-1])
+        reso_value = int(time_reso[:-1]) if len(time_reso) > 1 else 1
     elif time_reso[-1] == 'H':
         datapoint_multiplier = 1/60
-        reso_value = float(time_reso[:-1])
-    elif time_reso[-1] == 's':
+        reso_value = float(time_reso[:-1]) if len(time_reso) > 1 else 1
+    elif time_reso[-1] in ('S', 's'):
         datapoint_multiplier = 60
-        reso_value = int(time_reso[:-1])
+        reso_value = int(time_reso[:-1]) if len(time_reso) > 1 else 1
     else:
         raise Exception(f"Time resolution format ({time_reso}) not recognized. Use either 'min' or 's'.")
 
@@ -4546,7 +4547,7 @@ def calculate_cusum_window(time_reso, window_minutes:int=30) -> int:
 
 
 
-def set_fig_ylimits(ax:plt.Axes, ylim:(list,tuple)=None, flux_series:pd.Series=None):
+def set_fig_ylimits(ax:plt.Axes, ylim:list=None, flux_series:pd.Series=None):
     """
     Sets the vertical axis limits of the figure, given an Axes and a tuple or list of y-values.
     """
