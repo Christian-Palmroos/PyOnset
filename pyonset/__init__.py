@@ -71,6 +71,7 @@ TITLE_FONTSIZE = 30
 AXLABEL_FONTSIZE = 26
 TICK_LABELSIZE = 22
 TXTBOX_SIZE = 19
+LEGEND_SIZE = 12
 
 COLOR_SCHEME = {
     "median" : "red",
@@ -3189,7 +3190,8 @@ class OnsetStatsArray:
         plt.show()
 
 
-    def show_onset_distribution(self, integration_time_index:int=0, xlim=None, show_background=True, save=False, savepath:str=None, legend_loc="out") -> None:
+    def show_onset_distribution(self, integration_time_index:int=0, xlim=None, show_background=True, 
+                                save=False, savepath:str=None, legend_loc="out") -> None:
         """
         Displays all the unique onsets found with statistic_onset() -method in a single plot. The mode onset, that is
         the most common out of the distribution, will be shown as a solid line. All other unique onset times are shown
@@ -3275,17 +3277,8 @@ class OnsetStatsArray:
             else:
                 ax.axvline(x=onset[0], c="red", label=f"{str(onset[0])[11:19]} ({np.round(onset[1]*100,2):.2f} %)") 
 
-        # Legend and title for the figure.
-        if legend_loc=="out":
-            # loc=3 means that the legend handle is "lower left"
-            legend_handle, legend_bbox = 3, (1.0, 0.01)
-        elif legend_loc=="in":
-            # loc=4 means that the legend handle is "lower left"
-            legend_handle, legend_bbox = 4, (1.0, 0.01)
-        else:
-            raise ValueError(f"Argument legend_loc has to be either 'in' or 'out', not {legend_loc}")
-        ax.legend(loc=legend_handle, bbox_to_anchor=legend_bbox, prop={"size": 12})
-       
+        set_legend(ax=ax, legend_loc=legend_loc, size=LEGEND_SIZE)
+
         int_time_str = f"{self.integration_times[integration_time_index]} integration time" if pd.Timedelta(self.integration_times[integration_time_index]) != self.linked_object.get_minimum_cadence() else f"{self.integration_times[integration_time_index]} data"
         # int_time_str = f"{self.integration_times[index]} integration time" if index != 0 else f"{int(self.linked_object.get_minimum_cadence().seconds/60)} min data" if self.linked_object.get_minimum_cadence().seconds>59 else f"{self.linked_object.get_minimum_cadence().seconds} s data"
         ax.set_title(f"{self.spacecraft.upper()}/{self.sensor.upper()} ({self.channel_str}) {self.linked_object.s_identifier}\nOnset distribution ({int_time_str})", fontsize=TITLE_FONTSIZE)
@@ -3299,7 +3292,8 @@ class OnsetStatsArray:
         plt.show()
 
 
-    def show_onset_statistics(self, integration_time_index:int=0, percentiles=[(15.89,84.1),(2.3,97.7)], xlim=None, show_background=True, save=False, savepath:str=None) -> None:
+    def show_onset_statistics(self, integration_time_index:int=0, xlim=None, show_background=True, 
+                              save=False, savepath:str=None, legend_loc="out") -> None:
         """
         Shows the median, mode, mean and confidence intervals for the distribution of onsets got from statistic_onset().
 
@@ -3321,13 +3315,6 @@ class OnsetStatsArray:
         savepath : {str}, optional
                 The directory path or subdirectory to save the figure to.
         """
-
-        # Take the 1-std and 2-std limits from a normal distribution (default)
-        sigma1, sigma2 = percentiles[0], percentiles[1]
-
-        # Collect the 1-sigma and 2-sigma confidence intervals out of the onset distribution 
-        # There is no sense in calculating these since they already exist in archive
-        # confidence_intervals = self.linked_object.get_distribution_percentiles(onset_list = self.archive[integration_time_index]["onset_list"], percentiles=[sigma1,sigma2])
 
         # Collect the median, mode and mean onsets from the distribution
         onset_median = self.archive[integration_time_index]["median_onset"]
@@ -3387,7 +3374,7 @@ class OnsetStatsArray:
         ax.set_ylabel(self.linked_object.unit, fontsize=AXLABEL_FONTSIZE)
         ax.set_xlabel(f"Time ({figdate})", fontsize=AXLABEL_FONTSIZE)
 
-        ax.legend()
+        set_legend(ax=ax, legend_loc=legend_loc, size=LEGEND_SIZE)
 
         # particle_str = "electrons" if self.species=='e' else "protons" if self.species=='p' else "ions"
         int_time_str = f"{self.integration_times[integration_time_index]} integration time" if pd.Timedelta(self.integration_times[integration_time_index]) != self.linked_object.get_minimum_cadence() else f"{self.integration_times[integration_time_index]} data"
@@ -4524,7 +4511,6 @@ def calculate_cusum_window(time_reso, window_minutes:int=30) -> int:
 
     if isinstance(time_reso, (pd._libs.tslibs.offsets.Second, pd._libs.tslibs.offsets.Minute, pd._libs.tslibs.offsets.Hour)):
         time_reso = time_reso.freqstr
-        print(time_reso)
 
     if time_reso[-3:] == "min":
         datapoint_multiplier = 1
@@ -4576,6 +4562,20 @@ def set_standard_ticks(ax):
 
     ax.tick_params(which="major", length=ticklen, width=tickw, labelsize=TICK_LABELSIZE)
     ax.tick_params(which="minor", length=ticklen-3, width=tickw-0.6)
+
+
+def set_legend(ax, legend_loc, size):
+
+    # Legend and title for the figure.
+    if legend_loc=="out":
+        # loc=3 means that the legend handle is "lower left"
+        legend_handle, legend_bbox = 3, (1.0, 0.01)
+    elif legend_loc=="in":
+        # loc=4 means that the legend handle is "lower left"
+        legend_handle, legend_bbox = 4, (1.0, 0.01)
+    else:
+        raise ValueError(f"Argument legend_loc has to be either 'in' or 'out', not {legend_loc}")
+    ax.legend(loc=legend_handle, bbox_to_anchor=legend_bbox, prop={"size": size})
 
 
 def get_figdate(dt_array):
