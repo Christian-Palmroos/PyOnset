@@ -71,7 +71,7 @@ TITLE_FONTSIZE = 30
 AXLABEL_FONTSIZE = 26
 TICK_LABELSIZE = 22
 TXTBOX_SIZE = 19
-LEGEND_SIZE = 12
+LEGEND_SIZE = 22
 
 COLOR_SCHEME = {
     "median" : "red",
@@ -3179,7 +3179,9 @@ class OnsetStatsArray:
         ax.yaxis.set_major_formatter(hour_minute_format)
 
         ax.grid(visible=grid, axis="both")
-        ax.legend(loc=3, bbox_to_anchor=(1.0, 0.01), prop={'size': 24})
+
+        set_legend(ax=ax, legend_loc="out", size=LEGEND_SIZE+2)
+        # ax.legend(loc=3, bbox_to_anchor=(1.0, 0.01), prop={'size': 24})
 
         if save:
             if not savepath:
@@ -3304,8 +3306,6 @@ class OnsetStatsArray:
         -----------
         integration_time_index : int, default 0
                 Choose which distribution from the integration time plot to show
-        percentiles : list of tuples, default [(15.89,84.1),(2.3,97.7)]
-                Shows the percentiles of the distribution as shading over the plot
         xlim : {tuple, list} of len()==2
                 The left and right limits for the x-axis as pandas-compatible time strings.
         show_background : {bool}, optional
