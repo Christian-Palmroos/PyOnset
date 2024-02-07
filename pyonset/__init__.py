@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-02-06
+@Updated: 2024-02-07
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -96,7 +96,7 @@ class Onset(Event):
                     species, data_level, data_path, viewing, radio_spacecraft,
                     threshold)
             self.custom_data = False
-            self.unit = "Intensity [1/(cm^2 sr s MeV)]" if unit is None else unit
+            self.unit = r"Intensity [1/(cm$^{2}$ sr s MeV)]" if unit is None else unit
 
         else:
 
