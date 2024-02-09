@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-02-07
+@Updated: 2024-02-09
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -4514,7 +4514,7 @@ def calculate_cusum_window(time_reso, window_minutes:int=30) -> int:
 
     if time_reso[-3:] == "min":
         datapoint_multiplier = 1
-        reso_value = float(time_reso[:-3])
+        reso_value = float(time_reso[:-3]) if len(time_reso) > 3 else 1
     elif time_reso[-1] == 'T':
         datapoint_multiplier = 1
         reso_value = int(time_reso[:-1]) if len(time_reso) > 1 else 1
