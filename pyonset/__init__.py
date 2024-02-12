@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-02-09
+@Updated: 2024-02-12
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -3565,8 +3565,12 @@ def check_confidence_intervals(confidence_intervals, time_reso):
     of the time series data.
     """
 
+    # Initialize minimum inner boundaries (no outer boundary can be inside these)
+    min_low_boundary = confidence_intervals[0][0]
+    min_high_boundary = confidence_intervals[0][1]
+
     new_intervals = []
-    for interval in confidence_intervals:
+    for i, interval in enumerate(confidence_intervals):
 
         if interval[1] - interval[0] < pd.Timedelta(time_reso):
 
@@ -3575,10 +3579,36 @@ def check_confidence_intervals(confidence_intervals, time_reso):
 
             # Push the boundaries of the interval further from their center by half of the time resolution
             new_interval0, new_interval1 = center_of_interval - pd.Timedelta(time_reso)/2, center_of_interval + pd.Timedelta(time_reso)/2
-            new_intervals.append((new_interval0,new_interval1))
 
+            # Check that inner boundaries are never outside outer boundaries
+            # Also check that 1sigma boundary is never outside 2sigma boundaries
+            if i==0:
+                min_low_boundary = new_interval0
+                min_high_boundary = new_interval1
+
+            if new_interval0 > min_low_boundary:
+                new_interval0 = min_low_boundary
+            
+            if new_interval1 < min_high_boundary:
+                new_interval1 = min_high_boundary
+
+        # Even if the interval length is larger than the time resolution, some outer boundary may be left inside
+        # an inner interval
         else:
-            new_intervals.append((interval[0], interval[1]))
+
+            # Here check that outer interval boundaries are not inside inner interval boundaries
+            if interval[0] > min_low_boundary:
+                new_interval0 = min_low_boundary
+            else:
+                new_interval0 = interval[0]
+            
+            if interval[1] < min_high_boundary:
+                new_interval1 = min_high_boundary
+            else:
+                new_interval1 = interval[1]
+
+        new_intervals.append((new_interval0,new_interval1))
+
 
     return new_intervals
 
