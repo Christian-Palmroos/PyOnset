@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-02-12
+@Updated: 2024-02-29
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -743,8 +743,8 @@ class Onset(Event):
         # https://towardsdatascience.com/calculating-confidence-interval-with-bootstrapping-872c657c058d
 
         # Channels are considered a list in the data loader, that's why this check is done here
+        self.last_used_channel = channels
         if isinstance(channels,int):
-            self.last_used_channel = channels
             channels = [channels]
 
 
@@ -2565,6 +2565,8 @@ class Onset(Event):
 
         # Check which channels to run uncertainty stats on
         if channels is None or channels=="all":
+            if self.custom_data:
+                raise Exception("The list of channels must be manually given as an input in the case of custom data!")
             all_channels = self.get_all_channels()
         elif isinstance(channels, (tuple, list, range)):
             all_channels = channels
@@ -3536,7 +3538,7 @@ class OnsetStatsArray:
                                                     self.w_sigma2_low_bound, self.w_sigma2_upper_bound)
 
         if returns:
-            return self.mode, self.w_median, self.w_sigma1_low_bound, self.w_sigma1_upper_bound, self.w_sigma2_low_bound, self.w_sigma2_upper_bound
+            return self.w_mode, self.w_median, self.w_sigma1_low_bound, self.w_sigma1_upper_bound, self.w_sigma2_low_bound, self.w_sigma2_upper_bound
 
     def check_weighted_timestamps(self):
         """
