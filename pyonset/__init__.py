@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-02-29
+@Updated: 2024-03-05
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -1675,6 +1675,10 @@ class Onset(Event):
             # Initialize the list of channels according to the sc and instrument used
             channels = self.get_all_channels()
 
+            # Include a check here to get rid of channel 300 in EPHIN data after the switch-off
+            if self.sensor == "ephin" and self.start_date > pd.to_datetime("2017-10-04 00:00:00"):
+                channels = [c_id for c_id in channels if c_id != 300]
+
             for ch in channels:
                 # The median onset is found as the first entry of any list within the dictionary 'onset_statistics'. If that,
                 # however, does not exist for a particular channel, then insert NaT to be masked away later in the method.
@@ -1715,7 +1719,11 @@ class Onset(Event):
                 # initialize the list of channels according to the sc and instrument used
                 channels1 = Onset.get_all_channels()
 
-                # If there was no input for onset times, init an empty array and filll it up with values from the object
+                # Include a check here to get rid of channel 300 in EPHIN data after the switch-off
+                if Onset.sensor == "ephin" and Onset.start_date > pd.to_datetime("2017-10-04 00:00:00"):
+                    channels1 = [c_id for c_id in channels1 if c_id != 300]
+
+                # If there was no input for onset times, init an empty array and fill it up with values from the object
                 onset_times1 = np.array([])
 
                 for ch in channels1:
@@ -2156,12 +2164,11 @@ class Onset(Event):
 
             # Omitted datapoints, paint all points white and then those not omitted blue (+ red) again
             if plot_omitted:
-                ax.scatter(inverse_beta_all, onset_times_all, c="white", s=10, zorder=2)
-                ax.scatter(inverse_beta[selection], onset_times[selection], s=11, zorder=3)
-
                 if Onset:
                     ax.scatter(inverse_beta1[selection1], onset_times1[selection1], s=11, zorder=3)
 
+                ax.scatter(inverse_beta_all, onset_times_all, c="white", s=10, zorder=2)
+                ax.scatter(inverse_beta[selection], onset_times[selection], s=11, zorder=3)
 
             # The odr fit
             # Here we need to first take the selection of i_beta_all and ONLY after that take the compressed form, which is the set of valid values
@@ -2193,9 +2200,9 @@ class Onset(Event):
             # Title for the figure
             if title is None:
                 if Onset:
+                    instrument_species_id = instrument.upper() if species_title==species_title1 else f"{instrument.upper()} {species_title}"
                     # This is the default for joint VDA, two instruments of the same spacecraft
                     if self.spacecraft == Onset.spacecraft:
-                        instrument_species_id = instrument.upper() if species_title==species_title1 else f"{instrument.upper()} {species_title}"
                         if self.viewing:
                             ax.set_title(f"VDA, {spacecraft.upper()} / {instrument_species_id}({self.viewing}) + {Onset.sensor.upper()} {species_title1}, {date_of_event}", fontsize=TITLE_FONTSIZE)
                         else:
@@ -2206,7 +2213,7 @@ class Onset(Event):
                         if self.viewing and Onset.viewing:
                             ax.set_title(f"VDA, {spacecraft.upper()}/{instrument_species_id}({self.viewing}) + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}({Onset.viewing})\n{species_title1}, {date_of_event}", fontsize=TITLE_FONTSIZE)
                         elif self.viewing:
-                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument_species_id}({self.viewing}) + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}\n{species_title1}, {date_of_event}", fontsize=TITLE_FONTSIZE)
+                            ax.set_title(f"VDA, {spacecraft.upper()}/{self.sensor} ({self.viewing}) {species_title} + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}\n{species_title1}, {date_of_event}", fontsize=TITLE_FONTSIZE)
                         elif Onset.viewing:
                             ax.set_title(f"VDA, {spacecraft.upper()}/{instrument_species_id} + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}({Onset.viewing})\n{species_title1}, {date_of_event}", fontsize=TITLE_FONTSIZE)
                         else:
