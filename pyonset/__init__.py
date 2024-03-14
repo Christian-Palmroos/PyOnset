@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-03-05
+@Updated: 2024-03-14
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -234,6 +234,12 @@ class Onset(Event):
         Returns a range(first,last+1) of all the channel identifiers for any unique instrument+species pair.
         """
         return self.all_channels[f"{self.spacecraft}_{self.sensor}_{self.species}"]
+
+    def get_current_channel_str(self):
+        """
+        Gets the string for the cuirrent energy channel
+        """
+        return self.get_channel_energy_values(returns="str")[self.last_used_channel]
 
     def get_minimum_cadence(self):
         try:
