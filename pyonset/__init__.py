@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-03-14
+@Updated: 2024-04-04
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -770,14 +770,18 @@ class Onset(Event):
         else:
             flux_series, self.recently_examined_channel_str = self.data[channels], channels
 
+        # Create a timedelta representation of resample, for convenience
+        resample_td = pd.Timedelta(resample)
         # By default there will be a list containing timeseries indices of varying origins of offset
         if offset_origins and resample:
 
-            # So far we will only allow origins to be offset if the data is a multiple of minutes resolution
+            # Separate the unit of resample and its numerical value
+            resample_unit_str = find_biggest_nonzero_unit(timedelta=resample_td)
+            resample_value = int(resample[:-3]) if resample_unit_str=="min" else int(resample[:-1])
             if resample[-3:] == "min":
 
                 # This integer is one larger than the offset will ever go
-                data_res = int(resample[:-3])
+                data_res = int(resample_value)
 
                 # There will be a set amount of varying offsets with linear intervals to the time indices of flux_series.
                 # offsets are plain integers
@@ -788,7 +792,7 @@ class Onset(Event):
 
                 # Produces a list of indices of varying offsets. The first one in the list has offset=0, which are 
                 # just the original indices. These indices will replace the indices of the series in the list.
-                list_of_indices = [flux_series.index + to_offset(f"{offset}min") for offset in offsets]
+                list_of_indices = [flux_series.index + to_offset(f"{offset}{resample_unit_str}") for offset in offsets]
 
                 # These are a random numbers to access any of the indices in the list of indices.
                 # Calculated beforehand to save computation time.
@@ -2326,6 +2330,27 @@ class Onset(Event):
             
             return stop_int
 
+
+        def produce_integration_times(int_time_ints, limit_averaging, stop) -> list[str]:
+            """
+            Returns a list of integration time strings to be used in the loop that produces
+            onset statistics arrays.
+            """
+
+            if limit_averaging is not None:
+                unit_of_time = find_biggest_nonzero_unit(timedelta=pd.Timedelta(limit_averaging))
+            elif stop is not None:
+                unit_of_time = find_biggest_nonzero_unit(timedelta=pd.Timedelta(stop))
+            else:
+                raise Exception("""The unit of integration time not identified! The issue could be caused \
+                                by custom data with unidentified frequency. Try either limiting the averaging with 'limit_averaging' \
+                                keyword, or averaging to a set frequency with 'average_to' keyword.""")
+            
+            int_time_strs = [f"{i} {unit_of_time}" for i in int_time_ints]
+
+            return int_time_strs
+
+
         # Check channel validity (if standard data)
         if not self.custom_data:
             if not isinstance(channels,int):
@@ -2334,9 +2359,14 @@ class Onset(Event):
 
         # Get the integer numbers that represent stop and/or limit_averaging in minutes
         if stop:
+            # Integer value of stopping condition, e.g., the '5' in '5 min'.
             stop_int = dt_str_to_int(stop)
+            # Unit of time
+            unit_of_time = find_biggest_nonzero_unit(timedelta=pd.Timedelta(stop))
         if limit_averaging:
             limit_averaging_int = dt_str_to_int(limit_averaging)
+            # Unit of time
+            unit_of_time = find_biggest_nonzero_unit(timedelta=pd.Timedelta(limit_averaging))
 
         # SolO/EPT first channel does not provide proper data as of late
         if self.spacecraft=="solo" and self.sensor=="ept" and channels==0:
@@ -2375,7 +2405,7 @@ class Onset(Event):
         first_run_uncertainty = first_run_stats["1-sigma_confidence_interval"][1] - first_run_stats["1-sigma_confidence_interval"][0]
 
         if prints:
-            print(f"1-sigma uncertainty for the self time with native data resolution: {first_run_uncertainty}")
+            print(f"~68 % uncertainty for the self time with native data resolution: {first_run_uncertainty}")
 
         # Could be that the native resolution identifies no onset at all, in this case handle it
         if not isinstance(first_run_uncertainty, pd._libs.tslibs.nattype.NaTType):
@@ -2440,7 +2470,7 @@ class Onset(Event):
 
                 if not isinstance(next_run_uncertainty, pd._libs.tslibs.nattype.NaTType):
                     if prints:
-                        print(f"No onset found in the native data resolution. 1-sigma uncertainty with {i} min resolution: {next_run_uncertainty}")
+                        print(f"No onset found in the native data resolution. ~68 % uncertainty with {i} min resolution: {next_run_uncertainty}")
 
                     # Here check if it makes sense to average "from i minutes to <uncertainty> minutes or up to "stop" minutes
                     if stop:
@@ -2466,7 +2496,7 @@ class Onset(Event):
 
                     else:
                         if prints:
-                            print(f"1-sigma uncertainty less than current time-averaging. Terminating.")
+                            print(f"~68 % uncertainty less than current time-averaging. Terminating.")
 
                         stats_arr.add(self)
                         stats_arr.calculate_weighted_uncertainty(weights)
@@ -2483,28 +2513,31 @@ class Onset(Event):
                             return stats_arr
                     else:
                         pass
-        
+
 
         # Here if int_times gets too long, coarsen it up a little from 10 minutes onward
         # Logic of this selection: preserve an element of int_times if it's at most 10 OR if it's divisible by 5
         if limit_computation_time:
             int_times = int_times[np.where((int_times <= 10) | (int_times%5==0))]
 
-        # If the user set's some upper limit to the averaging, apply that limit here
+        # If the user set some upper limit to the averaging, apply that limit here
         if isinstance(limit_averaging,str):
             int_times = int_times[np.where(int_times <= limit_averaging_int)]
 
-        # Finally convert int_times (minutes) to pandas-compatible time strs
-        int_time_strs = np.array([f"{i}min" for i in int_times])
+        # Finally convert int_times (integers) to pandas-compatible time strs
+        int_time_strs = produce_integration_times(int_time_ints=int_times, limit_averaging=limit_averaging, stop=stop)           
 
         # Loop through int_times as far as the first run uncertainty reaches
-        for _, resample in enumerate(int_time_strs):
+        for resample in int_time_strs:
 
-            if int(resample[:-3]) > 10:
-                cusum_minutes = int(resample[:-3])*3
+            # A check to adjust the cusum window in cases of large integration times. Only for standardized data.
+            if not self.custom_data:
+                # Here it is assumed that the resample string represents minutes, and ends with 'min'.
+                if int(resample[:-3]) > 10:
+                    cusum_minutes = int(resample[:-3])*3
 
             _, _ = self.statistic_onset(channels=channels, Window=background, viewing=viewing, 
-                                            sample_size=sample_size, resample=str(resample), erase=erase, small_windows=small_windows,
+                                            sample_size=sample_size, resample=resample, erase=erase, small_windows=small_windows,
                                             cusum_minutes=cusum_minutes, sigma_multiplier=sigma, detrend=detrend)
 
             stats_arr.add(self)
@@ -2516,7 +2549,7 @@ class Onset(Event):
         return stats_arr
 
 
-    def onset_statistics_per_channel(self, background, viewing, channels=None, erase:(tuple,list)=None, cusum_minutes:int=30, sample_size:float=0.50, 
+    def onset_statistics_per_channel(self, background, viewing, channels=None, erase:list=None, cusum_minutes:int=30, sample_size:float=0.50, 
                                      weights:str="uncertainty", detrend=True, limit_computation_time=True, average_to=None, print_output=False, 
                                      limit_averaging=None, fail_avg_stop:int=None, random_seed:int=None):
         """
@@ -3998,6 +4031,23 @@ def datetime_mean(arr):
     arr1 = pd.Series(arr)
     
     return arr1.mean()
+
+
+def find_biggest_nonzero_unit(timedelta):
+    """
+    Finds the biggest unit of time that describes the timedelta.
+    Available units of time include a day, an hour, a minutes and a second.
+    """
+    
+    days, hours, minutes, seconds, _, _, _ = timedelta.components
+    
+    if days != 0:
+        return 'D'
+    if hours != 0:
+        return 'H'
+    if minutes != 0:
+        return "min"
+    return 's'
 
 
 def find_earliest_possible_onset(flux_series, cusum_function, onset_time):
