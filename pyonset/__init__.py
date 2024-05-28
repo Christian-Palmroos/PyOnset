@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-04-04
+@Updated: 2024-05-28
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -1604,7 +1604,7 @@ class Onset(Event):
 
     def VDA(self, onset_times=np.array([]), Onset=None, energy:str='gmean', selection=None, 
             yerrs=None, reference:str="mode", title=None, ylim=None, plot=True, guess=None, save=False,
-            savepath=None, grid=True):
+            savepath=None, grid=True, show_omitted=True):
         """
         Performs Velocity Dispersion Analysis.
 
@@ -1636,6 +1636,8 @@ class Onset(Event):
                     Switch to save the plotted figure. Only works if plot=True.
         grid : {bool} default True
                     Boolean switch for gridlines.
+        show_omitted : {bool} default True
+                    A switch to show the data points omitted from the fit in the plot.
 
         Returns:
         ---------
@@ -1918,13 +1920,15 @@ class Onset(Event):
                     # Finally combine selections
                     selection_all = np.append(selection,selection1) 
 
-                plot_omitted = True
+                # This variable signifies if there are data points in the plot that are not considered for the fit,
+                # and are therefore hollowed with a white middle part.
+                omitted_exists = True
 
             else:
                 selection = slice(0,len(onset_times))
                 selection1 = slice(0,len(onset_times1))
                 selection_all = slice(0,len(onset_times_all))
-                plot_omitted = False
+                omitted_exists = False
 
             # These are only used for the fit -> slice them to fit selection
             inverse_beta_corrected = inverse_beta_corrected[selection_all]
@@ -2058,15 +2062,15 @@ class Onset(Event):
                     if selection.start==selection.stop:
                         selection_all = ~mask
                         selection = selection_all
-                        plot_omitted = False
+                        omitted_exists = False
                 
                 selection_all = selection
-                plot_omitted = True
+                omitted_exists = True
 
             else:
                 selection_all = ~mask
                 selection = selection_all
-                plot_omitted = False
+                omitted_exists = False
                 
 
             # These are only used for the fit -> slice them to fit selection
@@ -2156,10 +2160,36 @@ class Onset(Event):
 
             ax.grid(visible=grid, axis="both")
 
+            # Choose if to plot all data points, or just the ones that are considered for the fit. The default is to show all data points.
+            if not show_omitted:
+                omitted_exists = False
+                inverse_beta = inverse_beta[selection]
+                onset_times = onset_times[selection]
+                x_errors_lower = x_errors_lower[selection]
+                x_errors_upper = x_errors_upper[selection]
+                y_errors_plot = y_errors_plot.compressed()
+                if len(y_errors_plot)==2:
+                    y_errors_plot[0] = y_errors_plot[0][selection]
+                    y_errors_plot[1] = y_errors_plot[1][selection]
+                else:
+                    y_errors_plot = y_errors_plot[selection]
+
+                if Onset:
+                    inverse_beta1 = inverse_beta1[selection1]
+                    onset_times1 = onset_times1[selection1]
+                    x_errors_lower1 = x_errors_lower1[selection]
+                    x_errors_upper1 = x_errors_upper1[selection]
+                    if len(y_errors_plot)==2:
+                        y_errors1_plot[0] = y_errors1_plot[0][selection]
+                        y_errors1_plot[1] = y_errors1_plot[1][selection]
+                    else:
+                        y_errors1_plot = y_errors1_plot[selection]
+
+
             # About matplotlib.Axes.errorbar:
             # shape(2, N): Separate - and + values for each bar. First row contains the lower errors, the second row contains the upper errors.
             # The reason xerr seems to be wrong way is that 'upper' refers to the upper ENERGY boundary, which corresponds to the LOWER 1/beta boundary
-            if Onset:
+            if Onset and len(inverse_beta1)>0:
                 label1 = Onset.sensor.upper() if mass_energy==mass_energy1 else f"{Onset.sensor.upper()} {species_title1}"
                 ax.errorbar(inverse_beta1, onset_times1, yerr=y_errors1_plot, xerr=[x_errors_upper1, x_errors_lower1], 
                         fmt='o', elinewidth=1.5, capsize=4.5, zorder=1, label=label1)
@@ -2169,11 +2199,13 @@ class Onset(Event):
                 label = "onset times"
             else:
                 label = self.sensor.upper() if mass_energy==mass_energy1 else f"{self.sensor.upper()} {species_title}"
-            ax.errorbar(inverse_beta, onset_times, yerr=y_errors_plot, xerr=[x_errors_upper, x_errors_lower], 
-                        fmt='o', elinewidth=1.5, capsize=4.5, zorder=1, label=label)
+
+            if len(inverse_beta) > 0:
+                ax.errorbar(inverse_beta, onset_times, yerr=y_errors_plot, xerr=[x_errors_upper, x_errors_lower], 
+                            fmt='o', elinewidth=1.5, capsize=4.5, zorder=1, label=label)
 
             # Omitted datapoints, paint all points white and then those not omitted blue (+ red) again
-            if plot_omitted:
+            if omitted_exists:
                 if Onset:
                     ax.scatter(inverse_beta1[selection1], onset_times1[selection1], s=11, zorder=3)
 
