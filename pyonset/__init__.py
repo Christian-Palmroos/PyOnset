@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-05-28
+@Updated: 2024-05-29
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -2177,13 +2177,14 @@ class Onset(Event):
                 if Onset:
                     inverse_beta1 = inverse_beta1[selection1]
                     onset_times1 = onset_times1[selection1]
-                    x_errors_lower1 = x_errors_lower1[selection]
-                    x_errors_upper1 = x_errors_upper1[selection]
-                    if len(y_errors_plot)==2:
-                        y_errors1_plot[0] = y_errors1_plot[0][selection]
-                        y_errors1_plot[1] = y_errors1_plot[1][selection]
+                    x_errors_lower1 = x_errors_lower1[selection1]
+                    x_errors_upper1 = x_errors_upper1[selection1]
+                    if len(y_errors1_plot)==2:
+                        y_errors1_plot_tmp0 = y_errors1_plot[0][selection1]
+                        y_errors1_plot_tmp1 = y_errors1_plot[1][selection1]
+                        y_errors1_plot = [y_errors1_plot_tmp0, y_errors1_plot_tmp1]
                     else:
-                        y_errors1_plot = y_errors1_plot[selection]
+                        y_errors1_plot = y_errors1_plot[selection1]
 
 
             # About matplotlib.Axes.errorbar:
