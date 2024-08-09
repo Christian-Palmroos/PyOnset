@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-05-29
+@Updated: 2024-08-09
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -70,8 +70,8 @@ BACKGROUND_ALPHA = 0.15 # used for the background shading when plotting
 TITLE_FONTSIZE = 30
 AXLABEL_FONTSIZE = 26
 TICK_LABELSIZE = 22
-TXTBOX_SIZE = 19
-LEGEND_SIZE = 22
+TXTBOX_SIZE = 23
+LEGEND_SIZE = 24
 
 COLOR_SCHEME = {
     "median" : "red",
@@ -533,7 +533,7 @@ class Onset(Event):
             ax.set_title(title, fontsize=TITLE_FONTSIZE)
 
         if diagnostics:
-            ax.legend(loc="best")
+            ax.legend(loc="best", fontsize=LEGEND_SIZE)
 
         # Attach the figure to class attribute even if not saving the figure
         self.fig, self.ax = fig, ax
@@ -3155,13 +3155,14 @@ class OnsetStatsArray:
         ax.set_title(f"Probability density for {self.linked_object.background.bootstraps} onset times\n{integration_time_str}", fontsize=TITLE_FONTSIZE)
         ax.xaxis.set_major_formatter(DateFormatter("%H:%M"))
 
-        plt.legend(loc=legend_loc, bbox_to_anchor=(1.0, 1.0), fancybox=True, ncol=3, fontsize = 17)
+        ax.legend(loc=legend_loc, bbox_to_anchor=(1.0, 1.0), fancybox=True, ncol=3, fontsize = LEGEND_SIZE)
+        #set_legend(ax=ax, legend_loc="in", fontsize=LEGEND_SIZE)
 
         if save:
             if savepath is None:
-                plt.savefig("onset_times_histogram.png", transparent=False, facecolor='white', bbox_inches='tight')
+                plt.savefig("onset_times_histogram.png", transparent=False, facecolor="white", bbox_inches="tight")
             else:
-                plt.savefig(f"{savepath}{os.sep}onset_times_histogram.png", transparent=False, facecolor='white', bbox_inches='tight')
+                plt.savefig(f"{savepath}{os.sep}onset_times_histogram.png", transparent=False, facecolor="white", bbox_inches="tight")
 
         plt.show()
 
@@ -3234,8 +3235,8 @@ class OnsetStatsArray:
         ax.scatter(xaxis_int_times, medians, s=115, label="median", zorder=2, color=COLOR_SCHEME["median"], marker="^")
         ax.scatter(xaxis_int_times, modes, s=115, label="mode", zorder=2, color=COLOR_SCHEME["mode"], marker="p")
 
-        ax.axhline(y=mean_of_medians, color=COLOR_SCHEME["median"], lw=2, label=f"Mean of median onsets:\n{str(mean_of_medians.time())[:8]}")
-        ax.axhline(y=mean_of_modes, color=COLOR_SCHEME["mode"], lw=2, label=f"Mean of mode onsets:\n{str(mean_of_modes.time())[:8]}")
+        ax.axhline(y=mean_of_medians, color=COLOR_SCHEME["median"], lw=2, label=f"Mean of medians:\n{str(mean_of_medians.time())[:8]}")
+        ax.axhline(y=mean_of_modes, color=COLOR_SCHEME["mode"], lw=2, label=f"Mean of modes:\n{str(mean_of_modes.time())[:8]}")
 
         ax.fill_between(xaxis_int_times, y1=conf1_lows, y2=conf1_highs, facecolor=COLOR_SCHEME["1-sigma"], alpha=0.3, zorder=1)
         ax.fill_between(xaxis_int_times, y1=conf2_lows, y2=conf2_highs, facecolor=COLOR_SCHEME["2-sigma"], alpha=0.3, zorder=1)
@@ -3261,7 +3262,7 @@ class OnsetStatsArray:
 
         ax.grid(visible=grid, axis="both")
 
-        set_legend(ax=ax, legend_loc="out", size=LEGEND_SIZE+2)
+        set_legend(ax=ax, legend_loc="out", fontsize=LEGEND_SIZE+4)
         # ax.legend(loc=3, bbox_to_anchor=(1.0, 0.01), prop={'size': 24})
 
         if save:
@@ -3360,7 +3361,7 @@ class OnsetStatsArray:
             else:
                 ax.axvline(x=onset[0], c="red", label=f"{str(onset[0])[11:19]} ({np.round(onset[1]*100,2):.2f} %)") 
 
-        set_legend(ax=ax, legend_loc=legend_loc, size=LEGEND_SIZE)
+        set_legend(ax=ax, legend_loc=legend_loc, fontsize=LEGEND_SIZE)
 
         int_time_str = f"{self.integration_times[integration_time_index]} integration time" if pd.Timedelta(self.integration_times[integration_time_index]) != self.linked_object.get_minimum_cadence() else f"{self.integration_times[integration_time_index]} data"
         # int_time_str = f"{self.integration_times[index]} integration time" if index != 0 else f"{int(self.linked_object.get_minimum_cadence().seconds/60)} min data" if self.linked_object.get_minimum_cadence().seconds>59 else f"{self.linked_object.get_minimum_cadence().seconds} s data"
@@ -3455,7 +3456,7 @@ class OnsetStatsArray:
         ax.set_ylabel(self.linked_object.unit, fontsize=AXLABEL_FONTSIZE)
         ax.set_xlabel(f"Time ({figdate})", fontsize=AXLABEL_FONTSIZE)
 
-        set_legend(ax=ax, legend_loc=legend_loc, size=LEGEND_SIZE)
+        set_legend(ax=ax, legend_loc=legend_loc, fontsize=LEGEND_SIZE)
 
         # particle_str = "electrons" if self.species=='e' else "protons" if self.species=='p' else "ions"
         int_time_str = f"{self.integration_times[integration_time_index]} integration time" if pd.Timedelta(self.integration_times[integration_time_index]) != self.linked_object.get_minimum_cadence() else f"{self.integration_times[integration_time_index]} data"
@@ -4370,7 +4371,7 @@ def onset_determination_v2(ma_sigma, flux_series, cusum_window, avg_end, sigma_m
     # k may get really big if sigma is large in comparison to mean
     try:
         k = (md-ma)/(np.log(md)-np.log(ma))
-        k_round = round(k/sigma)
+        k_round = round(k/sigma) if k/sigma > 1 else k/sigma
 
     except (ValueError, OverflowError) as error:
         # the first ValueError I encountered was due to ma=md=2.0 -> k = "0/0"
@@ -4379,7 +4380,7 @@ def onset_determination_v2(ma_sigma, flux_series, cusum_window, avg_end, sigma_m
         k_round = 1
 
     # choose h, the variable dictating the "hastiness" of onset alert
-    if k <= 1.0:
+    if k < 1.0:
         h = 1
     else:
         h = 2
@@ -4692,18 +4693,20 @@ def set_standard_ticks(ax):
     ax.tick_params(which="minor", length=ticklen-3, width=tickw-0.6)
 
 
-def set_legend(ax, legend_loc, size):
+def set_legend(ax: plt.Axes, legend_loc: str, fontsize:int):
 
-    # Legend and title for the figure.
+    # Legend placement:
     if legend_loc=="out":
         # loc=3 means that the legend handle is "lower left"
         legend_handle, legend_bbox = 3, (1.0, 0.01)
     elif legend_loc=="in":
-        # loc=4 means that the legend handle is "lower left"
+        # loc=4 means that the legend handle is "lower right"
         legend_handle, legend_bbox = 4, (1.0, 0.01)
     else:
         raise ValueError(f"Argument legend_loc has to be either 'in' or 'out', not {legend_loc}")
-    ax.legend(loc=legend_handle, bbox_to_anchor=legend_bbox, prop={"size": size})
+
+    # Sets the legend
+    ax.legend(loc=legend_handle, bbox_to_anchor=legend_bbox, fontsize=fontsize)
 
 
 def get_figdate(dt_array):
