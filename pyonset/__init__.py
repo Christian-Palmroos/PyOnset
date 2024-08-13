@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-08-09
+@Updated: 2024-08-13
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -4461,7 +4461,7 @@ def bootstrap_mus_and_sigmas(flux_series, window_start, window_end, n_bstraps, s
     for i in range(n_bstraps):
 
         # look inside the window and randomly pick sample_size amount of measurements there
-        sample = np.random.choice(window, replace=False, size=sample_size)
+        sample = np.random.choice(window, replace=True, size=sample_size)
         
         # then calculate the mean and standard deviation of that sample
         mean_arr[i] = np.nanmean(sample)
