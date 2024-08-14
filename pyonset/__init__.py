@@ -3112,7 +3112,10 @@ class OnsetStatsArray:
 
         # If xlims not manually defined, let them be \pm 2 minutes from the first and last onset of the distribution
         if not xlim:
-            xlim = (np.nanmin(stats["onset_list"]) - pd.Timedelta(minutes=2), np.nanmax(stats["onset_list"]) + pd.Timedelta(minutes=2))
+            # There might be NaTs among the onset list, so here choose only the valid ones to avert 
+            # TypeError when taking np.nanmin() of the list
+            valid_onset_list = np.array(stats["onset_list"])[~pd.isnull(stats["onset_list"])]
+            xlim = (np.nanmin(valid_onset_list) - pd.Timedelta(minutes=2), np.nanmax(valid_onset_list) + pd.Timedelta(minutes=2))
         ax.set_xlim(xlim)
 
         # Show percentage on y-axis
