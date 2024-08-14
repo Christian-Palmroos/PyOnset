@@ -4380,7 +4380,7 @@ def onset_determination_v2(ma_sigma, flux_series, cusum_window, avg_end, sigma_m
         k_round = 1
 
     # choose h, the variable dictating the "hastiness" of onset alert
-    h = 2 if k>1 else 1
+    h = 2 if k_round>1 else 1
 
     alert = 0
     cusum = np.zeros(len(flux_series))
