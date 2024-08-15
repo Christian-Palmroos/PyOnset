@@ -1851,9 +1851,7 @@ class Onset(Event):
                     time_error1 = get_time_errors(onset_times=onset_times1, spacecraft=Onset.spacecraft.lower())
 
                     try:
-
                         _ = str(time_error[0].seconds)
-
                     # Indexerror is caused by all NaTs -> no point in doing VDA
                     except IndexError:
                         return None
@@ -2148,7 +2146,7 @@ class Onset(Event):
             plt.rcParams['axes.linewidth'] = 2.5
             plt.rcParams['font.size'] = 16
 
-            # The colorblind style is apparently dependent of the configuration of stars and planets,
+            # The colorblind style is apparently dependent on the configuration of stars and planets,
             # because sometimes 'seaborn-v0_8-colorblind works and sometimes it doesn't. So let's
             # try/except here to find a style that actually works.
             try:
@@ -2218,7 +2216,7 @@ class Onset(Event):
             ax.plot(inverse_beta_all[selection_all].compressed(), odr_fit, ls='--',
                 label=f"L: {np.round(slope,3):.3f} $\pm$ {np.round(slope_uncertainty,3):.3f} AU\nt_inj: {rel_time_str} $\pm$ {str(t_inj_uncertainty)[7:]}")
 
-            ax.set_xlabel(r"1/$\beta$", fontsize = 20)
+            ax.set_xlabel(r"1/$\beta$", fontsize = AXLABEL_FONTSIZE)
 
             # Format the y-axis. For that make a selection to exclude NaTs from the set of onset times that define 
             # the vertical axis boundaries.
@@ -2229,16 +2227,17 @@ class Onset(Event):
             if len(not_nats) > 0:
                 if np.nanmax(not_nats)-np.nanmin(not_nats) > pd.Timedelta(minutes=10):
                     y_axis_time_format = DateFormatter("%H:%M")
-                    ax.set_ylabel("Time (HH:MM)", fontsize = 20)
+                    ax.set_ylabel("Time (HH:MM)", fontsize = AXLABEL_FONTSIZE)
                 else:
                     y_axis_time_format = DateFormatter("%H:%M:%S")
-                    ax.set_ylabel("Time (HH:MM:SS)", fontsize = 20)
+                    ax.set_ylabel("Time (HH:MM:SS)", fontsize = AXLABEL_FONTSIZE)
             ax.yaxis.set_major_formatter(y_axis_time_format)
 
             if ylim:
                 ax.set_ylim(pd.to_datetime(ylim[0]),pd.to_datetime(ylim[1]))
 
-            ax.legend(loc=4)
+            set_standard_ticks(ax=ax)
+            set_legend(ax=ax, legend_loc="in", fontsize=LEGEND_SIZE)
 
             # Title for the figure
             if title is None:
@@ -2247,14 +2246,14 @@ class Onset(Event):
                     # This is the default for joint VDA, two instruments of the same spacecraft
                     if self.spacecraft == Onset.spacecraft:
                         if self.viewing:
-                            ax.set_title(f"VDA, {spacecraft.upper()} / {instrument_species_id}({self.viewing}) + {Onset.sensor.upper()} {species_title1}, {date_of_event}", fontsize=TITLE_FONTSIZE)
+                            ax.set_title(f"VDA, {spacecraft.upper()} / {instrument_species_id} ({self.viewing}) + {Onset.sensor.upper()} {species_title1}, {date_of_event}", fontsize=TITLE_FONTSIZE)
                         else:
                             ax.set_title(f"VDA, {spacecraft.upper()} / {instrument_species_id} + {Onset.sensor.upper()} {species_title1}, {date_of_event}", fontsize=TITLE_FONTSIZE)
 
                     else:
                         # In this case these are two different spacecraft
                         if self.viewing and Onset.viewing:
-                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument_species_id}({self.viewing}) + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}({Onset.viewing})\n{species_title1}, {date_of_event}", fontsize=TITLE_FONTSIZE)
+                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument_species_id} ({self.viewing}) + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}({Onset.viewing})\n{species_title1}, {date_of_event}", fontsize=TITLE_FONTSIZE)
                         elif self.viewing:
                             ax.set_title(f"VDA, {spacecraft.upper()}/{self.sensor} ({self.viewing}) {species_title} + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}\n{species_title1}, {date_of_event}", fontsize=TITLE_FONTSIZE)
                         elif Onset.viewing:
@@ -2265,7 +2264,7 @@ class Onset(Event):
                 else:
                     # Single spacecraft, single instrument
                     if self.viewing:
-                        ax.set_title(f"VDA, {spacecraft.upper()} {instrument.upper()}({self.viewing}) {species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
+                        ax.set_title(f"VDA, {spacecraft.upper()} {instrument.upper()} ({self.viewing}) {species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
                     else:
                         ax.set_title(f"VDA, {spacecraft.upper()} {instrument.upper()} {species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
             else:
