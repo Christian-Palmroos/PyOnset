@@ -4165,9 +4165,10 @@ def get_time_reso(series):
             return f"{resolution} s"
     
     else:
-        return series.index.freq.freqstr
+        freq_str = series.index.freq.freqstr
+        return freq_str if len(freq_str) > 3 else f"1 {freq_str}"
 
-#===========================================================================================
+# ===========================================================================================
 
 def calc_chnl_nominal_energy(e_min, e_max, mode='gmean'):
     """
@@ -4177,7 +4178,7 @@ def calc_chnl_nominal_energy(e_min, e_max, mode='gmean'):
     Parameters:
     -----------
     e_min, e_max: np.arrays
-            Contains lower and hugher energy bounds for each channel respectively in eV
+            Contains lower and higher energy bounds for each channel respectively in eV
     mode: str, default='gmean'
         The mode for calculating nominal channel energy. Use 'gmean' for geometric mean, and
         'upper' for the upper energy bound.
