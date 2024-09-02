@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-08-15
+@Updated: 2024-09-02
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -1568,7 +1568,7 @@ class Onset(Event):
             for i, arr in enumerate(x):
                 ax_histx.hist(arr, bins=xbins, color=self.window_colors[i], alpha=0.6)
 
-            half_bin = pd.Timedelta(seconds=60)
+            half_bin = pd.Timedelta(seconds=30)
             ybins = pd.date_range(start=ylims[0]+half_bin, end=ylims[1]+half_bin, freq=ybinwidth).tolist()
 
             onset_frequencies = np.ones_like(y)/len(y)
@@ -3555,7 +3555,7 @@ class OnsetStatsArray:
         plt.show()
 
 
-    def calculate_weighted_uncertainty(self, weight_type:str="uncertainty", returns=False):
+    def calculate_weighted_uncertainty(self, weight_type:str="inverse_variance", returns=False):
         """
         Calculates the weighted confidence intervals based on the confidence intervals of the varying
         integration times. Weighting is done so that the confidence intervals are in a way normalized to 
@@ -3563,15 +3563,15 @@ class OnsetStatsArray:
 
         Parameters:
         -----------
-        weight_type : {str} either 'int_time' or 'uncertainty' (default)
+        weight_type : {str} either 'int_time', 'uncertainty' or 'inverse_variance' (default)
                     Defines the logic at which uncertainties are weighted.
 
         returns : {bool} default False
                     Switch for this method to also return the weights.
         """
 
-        if weight_type not in ("uncertainty", "int_time"):
-            raise ValueError(f"Argument {weight_type} is not a valid value for weight_type! It has to be either 'uncertainty' or 'int_time'.")
+        if weight_type not in ("uncertainty", "int_time", "inverse_variance"):
+            raise ValueError(f"Argument {weight_type} is not a valid value for weight_type! It has to be either 'uncertainty', 'int_time' or 'inverse_variance'.")
 
         # Asserting the weights so that w_0 = integration time of final distribution and w_{-1} = 1. 
         int_weights = [w for w in range(len(self.archive), 0, -1)]
@@ -3584,7 +3584,13 @@ class OnsetStatsArray:
         sigma1_upper_bounds = np.array([stats["1-sigma_confidence_interval"][1] for stats in self.archive])
         sigma2_upper_bounds = np.array([stats["2-sigma_confidence_interval"][1] for stats in self.archive])
 
-        if weight_type == "uncertainty":
+        if weight_type == "inverse_variance":
+
+            # Inverse-variance weighting:
+            # https://en.wikipedia.org/wiki/Inverse-variance_weighting
+            weights = self.inverse_variance_weights()
+
+        elif weight_type == "uncertainty":
 
             # Instead weighting by the width of 2-sigma uncertainty intervals
             sigma2_widths = np.array([(sigma2_upper_bounds[i] - low_bound) for i, low_bound in enumerate(sigma2_low_bounds)])
@@ -3642,6 +3648,56 @@ class OnsetStatsArray:
             self.w_sigma2_upper_bound = self.w_mode + min_separation
 
 
+    def inverse_variance_weights(self):
+        """
+        Calculates the inverse variance weights for onset distributions.
+        
+        Uses the inverse variance IN MINUTES as weights.
+        
+        Returns: weights : {np.ndarray} array of shape==(len(archive),)
+        """
+
+        # This is the variance of a distribution with 1000 onset times wide 1 minute equally spaced.
+        # Experimentally found with: pd.date_range("2024-01-01 00:00:00", "2024-01-01 00:01:00", 1000)
+        VAR_OF_MINUTE_WIDE_DISTRIBUTION = 0.08350016683180035
+
+        weights = np.zeros([len(self.archive)], dtype=float)
+
+        # Loop through each archive individually
+        for i, stats in enumerate(self.archive):
+
+            # Fetch onset list
+            onsets = pd.DatetimeIndex(stats["onset_list"])
+
+            # Convert to nanoseconds, because variance can NOT be calculated for
+            # datetime type objects
+            onsets_as_nanoseconds = onsets.astype(np.int64)
+
+            # NaTs equal to negative nanosecond values. Replace with nans as they are 
+            # not considered for calculation anyway
+            onsets_as_nanoseconds = np.where(onsets_as_nanoseconds<0, np.nan, onsets_as_nanoseconds)
+
+            # Calculating the variance of these numbers is in essence the variance
+            # of the onset times (in units of nanoseconds squared)
+            variance_in_nanoseconds = np.nanvar(onsets_as_nanoseconds)
+
+            # Multiply with 10^-18 to convert nanoseconds squared to seconds squared
+            variance_in_seconds = variance_in_nanoseconds * 1e-18
+
+            # Dividing by 3600 = 60*60 converts seconds squared to minutes squared
+            variance_in_minutes = variance_in_seconds / 3600.
+
+            # This check is here because sometimes numpy calculates the variance
+            # for a delta function to be an extremely small number of the order of
+            # 10^-17. I suspect it is due to calculating precision as in the case of
+            # a delta function the variance is 0. Anyway replace that here with 
+            # the variance of an equi-spaced distribution with width 1 minute times the time reso.
+            weights[i] = variance_in_minutes if variance_in_minutes > 1e-10 else VAR_OF_MINUTE_WIDE_DISTRIBUTION * (i+1)
+
+        # Return the reciprocal (1 / weights) 
+        return np.reciprocal(weights)
+
+
 
 def check_confidence_intervals(confidence_intervals, time_reso):
     """
@@ -3693,7 +3749,6 @@ def check_confidence_intervals(confidence_intervals, time_reso):
 
         new_intervals.append((new_interval0,new_interval1))
 
-
     return new_intervals
 
 
@@ -3703,11 +3758,11 @@ def weight_timestamp(weights, timestamps):
 
     Parameters:
     -----------
-    weight : {list of weights}
+    weights : {list of weights}
     timestamp : {list of pd.datetimes}
     """
 
-    # It could happen that there is only one timestamp and that's it's a NaT. In this case numpy will falsely
+    # It could happen that there is only one timestamp and that it's a NaT. In this case numpy will falsely
     # average the NaT to 1970-01-01 00:00, so check it here to avert this.
     if len(timestamps)==1 and isinstance(timestamps[0], pd._libs.tslibs.nattype.NaTType):
         return pd.NaT
