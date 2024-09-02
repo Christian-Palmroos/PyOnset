@@ -111,9 +111,11 @@ class Onset(Event):
             self.radio_spacecraft = radio_spacecraft
             self.threshold = threshold
 
-            self.data = data
-            self.current_df_e = data
-            self.current_df_i = data
+            if not isinstance(data,pd.DataFrame):
+                raise TypeError("Custom data needs to be provided as a DataFrame indexed by time!")
+            self.data = data.copy()
+            self.current_df_e = self.data
+            self.current_df_i = self.current_df_e
             self.unit = unit
 
             # Custom data flag prevents SEPpy functions from being called, as they would cause errors
@@ -123,10 +125,10 @@ class Onset(Event):
             print("Unidentified spacecraft-sensor combination.")
 
         # Everytime an onset is found any way, the last used channel should be updated
-        self.last_used_channel = np.NaN
+        self.last_used_channel = np.nan
 
         # The background window is stored to this attribute when cusum_onset() is called with a BootStrapWindow input
-        self.background = np.NaN
+        self.background = np.nan
 
         # This list is for holding multiple background windows if such were to be used
         self.list_of_bootstrap_windows = []
