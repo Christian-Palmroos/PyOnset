@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-09-02
+@Updated: 2024-09-03
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -752,7 +752,7 @@ class Onset(Event):
 
         # Channels are considered a list in the data loader, that's why this check is done here
         self.last_used_channel = channels
-        if isinstance(channels,int):
+        if isinstance(channels,(int,str)):
             channels = [channels]
 
 
@@ -770,7 +770,7 @@ class Onset(Event):
         if not self.custom_data:
             flux_series, self.recently_examined_channel_str = self.choose_flux_series(channels, viewing)
         else:
-            flux_series, self.recently_examined_channel_str = self.data[channels], channels
+            flux_series, self.recently_examined_channel_str = self.data[channels[0]], channels[0]
 
         # Create a timedelta representation of resample, for convenience
         resample_td = pd.Timedelta(resample)
