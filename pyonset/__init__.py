@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-09-03
+@Updated: 2024-09-16
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -4222,7 +4222,7 @@ def get_time_reso(series):
     
     else:
         freq_str = series.index.freq.freqstr
-        return freq_str if len(freq_str) > 3 else f"1 {freq_str}"
+        return freq_str if freq_str!="min" else f"1 {freq_str}"
 
 # ===========================================================================================
 
