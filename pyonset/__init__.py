@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-09-16
+@Updated: 2024-09-18
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -4431,13 +4431,19 @@ def onset_determination_v2(ma_sigma, flux_series, cusum_window, avg_end, sigma_m
     # k may get really big if sigma is large in comparison to mean
     try:
         k = (md-ma)/(np.log(md)-np.log(ma))
-        k_round = round(k/sigma) if k/sigma > 1 else k/sigma
+
+        # If ma == 0, then std == 0. Hence CUSUM should not be restricted at all -> k_round = 0
+        # Otherwise k_round should be 1
+        if not np.isnan(k):
+            k_round = round(k/sigma) if k/sigma > 1 else k/sigma
+        else:
+            k_round = 1 if ma > 0 else 0
 
     except (ValueError, OverflowError) as error:
         # the first ValueError I encountered was due to ma=md=2.0 -> k = "0/0"
         # OverflowError is due to k = inf
         # print(error)
-        k_round = 1
+        k_round = 1 if ma > 0 else 0
 
     # choose h, the variable dictating the "hastiness" of onset alert
     h = 2 if k_round>1 else 1
