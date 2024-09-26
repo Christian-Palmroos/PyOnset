@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-09-18
+@Updated: 2024-09-26
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -287,7 +287,7 @@ class Onset(Event):
         self.onset_statistics[key] = nan_stats
 
     def cusum_onset(self, channels, background_range, viewing=None, resample=None, cusum_minutes=30, sigma=2, title=None, save=False, savepath=None, 
-                    yscale='log', ylim=None, erase=None, xlim=None, show_stats=True, diagnostics=False, plot=True):
+                    yscale='log', ylim=None, erase=None, xlim=None, show_stats=True, diagnostics=False, plot=True, fname:str=None):
         """
         Does a Poisson-CUSUM-method-based onset analysis for given OnsetAnalysis object.
         Based on an earlier version by: Eleanna Asvestari <eleanna.asvestari@helsinki.fi>
@@ -326,6 +326,8 @@ class Onset(Event):
                 Diagnostic tool allows for plotting the CUSUM function, and printing many 'behind the curtains' variables for the user to see.
         plot: bool, default True
                 Switch to produce a plot. 
+        fname : {str} default None
+                A custom name for the figure if saved.
 
         Returns:
         ---------
@@ -544,15 +546,23 @@ class Onset(Event):
             if savepath is None:
                 savepath = CURRENT_PATH
 
-            if spacecraft.lower() in ["bepicolombo", "bepi"]:
-                plt.savefig(f"{savepath}{os.sep}{self.spacecraft}{self.sensor}_side{viewing}_{self.species}_{channels}_onset.png", transparent=False,
-                        facecolor='white', bbox_inches='tight')
-            elif viewing != "" and viewing is not None:
-                plt.savefig(f"{savepath}{os.sep}{self.spacecraft}{self.sensor}_{viewing.lower()}_{self.species}_{channels}_onset.png", transparent=False,
-                        facecolor='white', bbox_inches='tight')
+            # A custom name for the figure
+            if fname is not None:
+                fig.savefig(fname=f"{savepath}{os.sep}{fname}",
+                            facecolor="white", transparent=False, bbox_inches="tight")
+
+            # Use a default name for the figure
             else:
-                plt.savefig(f"{savepath}{os.sep}{self.spacecraft}{self.sensor}_{self.species}_{channels[:]}_onset.png", transparent=False,
-                        facecolor='white', bbox_inches='tight')
+
+                if spacecraft.lower() in ["bepicolombo", "bepi"]:
+                    plt.savefig(f"{savepath}{os.sep}{self.spacecraft}{self.sensor}_side{viewing}_{self.species}_{channels}_onset.png", transparent=False,
+                            facecolor='white', bbox_inches='tight')
+                elif viewing != "" and viewing is not None:
+                    plt.savefig(f"{savepath}{os.sep}{self.spacecraft}{self.sensor}_{viewing.lower()}_{self.species}_{channels}_onset.png", transparent=False,
+                            facecolor='white', bbox_inches='tight')
+                else:
+                    plt.savefig(f"{savepath}{os.sep}{self.spacecraft}{self.sensor}_{self.species}_{channels[:]}_onset.png", transparent=False,
+                            facecolor='white', bbox_inches='tight')
 
         if plot:
             plt.show()
@@ -1027,7 +1037,7 @@ class Onset(Event):
         return bootstrap_onset_statistics, mu_and_sigma_distributions
 
 
-    def show_onset_distribution(self, show_background=True, ylim=None, xlim=None):
+    def show_onset_distribution(self, show_background=True, ylim=None, xlim=None, returns=False):
         """
         Displays all the unique onsets found with statistic_onset() -method in a single plot. The mode onset, that is
         the most common out of the distribution, will be shown as a solid line. All other unique onset times are shown
@@ -1037,6 +1047,12 @@ class Onset(Event):
 
         show_background : {bool}, optional
                             Boolean switch to show the background used in the plot.
+        
+        ylim : {list,tuple}, optional
+
+        xlim : {list,tuple}, optional
+
+        returns : {bool}, optional 
         """
 
         rcParams["font.size"] = 20
@@ -1094,6 +1110,9 @@ class Onset(Event):
         ax.set_title("Onset distribution", fontsize=TITLE_FONTSIZE)
 
         plt.show()
+
+        if returns:
+            return fig, ax
 
 
     def show_onset_statistics(self, percentiles=[(15.89,84.1),(2.3,97.7)], show_background=True, xlim=None, ylim=None):
