@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-09-26
+@Updated: 2024-10-08
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -413,7 +413,11 @@ class Onset(Event):
 
         # The function finds the onset and returns a list of stats related to the onset
         # onset_stats = [ma, md, k_round, h, norm_channel, cusum, onset_time]
-        onset_stats = onset_determination_v2(background_stats, flux_series, cusum_window, background_end, sigma)
+        if self.unit not in ("Counting rate [1/s]", "Count rate [1/s]", "Counting rate", "Count rate", "counting rate", "count rate", "Counting_rate", "Count_rate"):
+            onset_stats = onset_determination(background_stats, flux_series, cusum_window, background_end, sigma)
+        else:
+            # If the unit is count rate (1/s), then employ Poisson-CUSUM without using z-standardized intensity
+            onset_stats = onset_determination_cr(background_stats, flux_series, cusum_window, background_end, sigma)
 
         # If the timestamp of onset is not NaT, then onset was found
         if not isinstance(onset_stats[-1],pd._libs.tslibs.nattype.NaTType):
@@ -936,7 +940,7 @@ class Onset(Event):
                     cusum_window = cusum_windows[j%len(cusum_windows)]
 
                     # Find an onset and save it into onset_series. Use the chosen series from the list of series
-                    onset_i = onset_determination_v2([mu, sigma], chosen_series, cusum_window, big_window_end, sigma_multiplier=sigma_multiplier)
+                    onset_i = onset_determination([mu, sigma], chosen_series, cusum_window, big_window_end, sigma_multiplier=sigma_multiplier)
                     onset_list.append(onset_i[-1])
 
 
@@ -4412,7 +4416,7 @@ def erase_glitches(series, glitch_threshold, time_barr):
 
 # ============================================================================
 
-def onset_determination_v2(ma_sigma, flux_series, cusum_window, avg_end, sigma_multiplier : int = 2) -> list :
+def onset_determination(ma_sigma, flux_series, cusum_window, avg_end, sigma_multiplier : int = 2) -> list :
     """
     Calculates the CUSUM function to find an onset time from the given time series data.
 
@@ -4501,6 +4505,98 @@ def onset_determination_v2(ma_sigma, flux_series, cusum_window, avg_end, sigma_m
     # onset_time = the time of the onset
 
     return [ma, md, k_round, h, norm_channel, cusum, onset_time]
+
+
+def onset_determination_cr(ma_sigma, flux_series, cusum_window, avg_end, sigma_multiplier : int = 2) -> list :
+    """
+    Calculates the CUSUM function to find an onset time from a given count rate data.
+    
+    The essential difference to the 'onset_determination()' -function is that this does NOT
+    employ z-standardized intensity. rather it simply uses the counts for calculating
+    CUSUM. Also k is not normalized to standard deviation. 
+
+    Parameters:
+    -----------
+    ma_sigma : tuple(float, float)
+
+    flux_series : pandas Series
+
+    cusum_window : int
+
+    avg_end : pandas datetime
+
+    sigma_multiplier : float, int
+
+    Returns:
+    --------
+    list(ma, md, k_round, h, flux_series.values, cusum, onset_time)
+    """
+
+    # Assert date and the starting index of the averaging process
+    date = flux_series.index
+
+    # First cut the part of the series that's before the ending of the averaging window. Then subtract that
+    # from the size of the original series to get the numeral index that corresponds to the ending of the 
+    # averaging window. starting_index is then the numeral index of the first datapoint that belongs outside
+    # the averaging window
+    cut_series = flux_series.loc[flux_series.index > avg_end]
+    start_index = flux_series.size - cut_series.size
+
+    ma = ma_sigma[0]
+    sigma = ma_sigma[1]
+
+    md = ma + sigma_multiplier*sigma
+
+    # k may get really big if sigma is large in comparison to mean
+    try:
+        k = (md-ma)/(np.log(md)-np.log(ma))
+
+        # If ma == 0, then std == 0. Hence CUSUM should not be restricted at all -> k_round = 0
+        # Otherwise k_round should be 1
+        if not np.isnan(k):
+            k_round = round(k) if k > 1 else k
+        else:
+            k_round = 1 if ma > 0 else 0
+
+    except (ValueError, OverflowError) as error:
+        # the first ValueError I encountered was due to ma=md=2.0 -> k = "0/0"
+        # OverflowError is due to k = inf
+        # print(error)
+        k_round = 1 if ma > 0 else 0
+
+    # Choose h, the variable dictating the "hastiness" of onset alert
+    h = 2 if k_round>1 else 1
+
+    alert = 0
+    cusum = np.zeros(len(flux_series))
+    
+    # Set the onset as default to be NaT (Not a daTe)
+    onset_time = pd.NaT
+
+    # Start at the index where averaging window ends
+    for i in range(start_index,len(cusum)):
+
+        # Calculate the value for ith cusum entry
+        cusum[i] = max(0, flux_series[i] - k_round + cusum[i-1])
+
+        # check if cusum[i] is above threshold h, if it is -> increment alert
+        if cusum[i]>h:
+            alert += 1
+        else:
+            alert = 0
+
+        # cusum_window(default:30) subsequent increments to alert means that the onset was found
+        if alert == cusum_window:
+            onset_time = date[i - alert]
+            break
+
+    # ma = mu_a = background average
+    # md = mu_d = background average + 2*sigma
+    # k_round = integer value of k, that is the reference value to poisson cumulative sum
+    # h = 1 or 2,describes the hastiness of onset alert
+    # onset_time = the time of the onset
+
+    return [ma, md, k_round, h, flux_series.values, cusum, onset_time]
 
 
 #==============================================================================================
