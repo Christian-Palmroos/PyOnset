@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-10-08
+@Updated: 2024-10-10
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -413,7 +413,8 @@ class Onset(Event):
 
         # The function finds the onset and returns a list of stats related to the onset
         # onset_stats = [ma, md, k_round, h, norm_channel, cusum, onset_time]
-        if self.unit not in ("Counting rate [1/s]", "Count rate [1/s]", "Counting rate", "Count rate", "counting rate", "count rate", "Counting_rate", "Count_rate"):
+        if self.unit not in ("Counting rate [1/s]", "Count rate [1/s]", "Counting rate", "Count rate", "counting rate", \
+                             "count rate", "Counting_rate", "Count_rate", "Counts", "counts"):
             onset_stats = onset_determination(background_stats, flux_series, cusum_window, background_end, sigma)
         else:
             # If the unit is count rate (1/s), then employ Poisson-CUSUM without using z-standardized intensity
@@ -530,12 +531,10 @@ class Onset(Event):
         # Setting the title
         if title is None:
 
-            time_reso_str = self.get_time_resolution_str(resample=resample)
-
             if viewing:
-                ax.set_title(f"{spacecraft}/{self.sensor.upper()} ({viewing}) {en_channel_string} {self.s_identifier}\n{time_reso_str}", fontsize=TITLE_FONTSIZE)
+                ax.set_title(f"{spacecraft}/{self.sensor.upper()} ({viewing}) {en_channel_string} {self.s_identifier}\n{time_reso} data", fontsize=TITLE_FONTSIZE)
             else:
-                ax.set_title(f"{spacecraft}/{self.sensor.upper()} {en_channel_string} {self.s_identifier}\n{time_reso_str}", fontsize=TITLE_FONTSIZE)
+                ax.set_title(f"{spacecraft}/{self.sensor.upper()} {en_channel_string} {self.s_identifier}\n{time_reso} data", fontsize=TITLE_FONTSIZE)
 
         else:
             ax.set_title(title, fontsize=TITLE_FONTSIZE)
@@ -4226,22 +4225,20 @@ def get_time_reso(series):
     """
 
     if series.index.freq is None:
+        
+        # Better approach:
+        index_diffs = series.index.diff()
+        
+        # There might be unregular time differences, pick the most
+        # appearing one -> mode.
+        diffs, counts = np.unique(index_diffs, return_counts=True)
+        mode_dt = pd.Timedelta(diffs[np.argmax(counts)])
 
-        for i in range(len(series)):
-            try:
-                resolution = (series.index[i+1] - series.index[i]).seconds
-                break
-            except AttributeError:
-                continue
+        # If less than 1 minute, express in seconds
+        divisor = 60 if mode_dt.resolution_string == "min" else 1
+        
+        return f"{mode_dt.seconds//divisor} {mode_dt.resolution_string}"
 
-        # STEREO data often looks like 59s resolution
-        if resolution==59:
-            return "1 min"
-
-        if resolution%60==0:
-            return f'{int(resolution/60)} min'
-        else:
-            return f"{resolution} s"
     
     else:
         freq_str = series.index.freq.freqstr
