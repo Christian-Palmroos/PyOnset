@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-10-10
+@Updated: 2024-10-14
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -4233,6 +4233,11 @@ def get_time_reso(series):
         # appearing one -> mode.
         diffs, counts = np.unique(index_diffs, return_counts=True)
         mode_dt = pd.Timedelta(diffs[np.argmax(counts)])
+
+        # Round up to the nearest second, because otherwise e.g., STEREO / SEPT data
+        # that may have cadence of '59.961614005' seconds is interpreted to have nanosecond
+        # precision.
+        mode_dt = mode_dt.round(freq='s')
 
         # If less than 1 minute, express in seconds
         divisor = 60 if mode_dt.resolution_string == "min" else 1
