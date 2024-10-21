@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-10-14
+@Updated: 2024-10-21
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -2879,6 +2879,110 @@ class Onset(Event):
 
         return confidence_intervals
 
+
+    def tsa_per_channel(self, radial_distance, solar_wind_speed=400):
+        """
+        Applies a time shift to all available energy channels accoridng to their kinetic energies
+        and an assumed path of Parker spiral arc that they travelled.
+
+        Parameters:
+        -----------
+        radial_distance : {float} The radial distance of the observer from the Sun at the time of observation.
+        
+        solar_wind_speed : {int/float} Solar wind speed in km/s. If not given, default to 400 km/s.
+        
+        Returns: 
+        ----------
+        tsa_times : {np.ndarray} The time-shifted timestamps.
+        """
+
+        # The nominal Parker spiral length for a given radial distance and solar wind speed
+        nominal_path = path_length_calculator(distance=radial_distance, solar_wind=solar_wind_speed)
+
+        # The mean speeds of the energetic particles
+        sep_speeds = self.calculate_particle_speeds()
+
+        # Init a list to collect time-shifted timestamps
+        tsa_times = []
+        for channel in self.onset_statistics:
+            onset_stats = self.onset_statistics[channel]
+            tsa_times.append(tsa(t0 = onset_stats[0], L=nominal_path, v=sep_speeds[channel]))
+
+        return np.array(tsa_times)
+
+
+    def tsa_plot(self, radial_distance, solar_wind_speed=400, ylim=None, plot=True, save=False, savepath=None):
+        """
+        Applies tsa on all channels, and produces a scatter plot.
+        
+        Parameters:
+        -----------
+        radial_distance : {float} Radial heliocentric distance in AUs.
+        
+        solar_wind_speed : {int/float} Speed of the solar wind for Parker spiral caclulation in km/s.
+                                        Defaults to 400 km/s if not given.
+        
+        ylim : {tuple/list} Set custom limits for y-axis.
+        
+        plot : {bool} Switch to produce a plot.
+        
+        save : {bool} Switch to save the plot.
+
+        savepath : {str} A path to save the plot, if the parameter <save> is enabled.
+        
+        Returns:
+        --------
+        tsa_results : {dict} 
+        """
+
+        species_str = "electron" if self.species=='e' else "proton"
+
+        tsa_results = {}
+
+        # Gets the time-shifted timestamps and save them to the dictionary
+        tsa_timestamps = self.tsa_per_channel(radial_distance=radial_distance, solar_wind_speed=solar_wind_speed)
+        tsa_results["tsa_timestamps"] = tsa_timestamps
+
+        # The x-axis in terms of the inverse speed:
+        inverse_betas = np.array([const.c.value/v for v in self.calculate_particle_speeds()])
+
+        # Stupid check and not general in its nature, but solo first channel is unavailable
+        # so leave it out here
+        if self.spacecraft.lower()=="solo" and self.sensor=="ept":
+            inverse_betas = inverse_betas[1:]
+
+        # Init the figure
+        tsa_fig, tsa_ax = plt.subplots(figsize=STANDARD_FIGSIZE)
+
+        tsa_ax.scatter(inverse_betas, tsa_timestamps, s=135)
+
+        tsa_ax.set_title(f"{self.spacecraft.upper()} / {self.sensor.upper()} {species_str} TSA", fontsize=TITLE_FONTSIZE)
+
+        tsa_ax.yaxis.set_major_formatter(DateFormatter("%H:%M"))
+
+        set_standard_ticks(ax=tsa_ax)
+        
+        tsa_ax.set_ylabel("Time", fontsize=AXLABEL_FONTSIZE)
+        tsa_ax.set_xlabel(r"1/$\beta$", fontsize=AXLABEL_FONTSIZE)
+        
+        if ylim:
+            tsa_ax.set_ylim(pd.to_datetime(ylim[0]), pd.to_datetime(ylim[1]))
+        
+        if save:
+            if not savepath:
+                savepath = CURRENT_PATH
+            tsa_fig.savefig(f"{self.spacecraft.lower()}_{self.sensor.lower()}_{self.species}_tsa.png", facecolor="white", transparent=False,
+                        bbox_inches="tight")
+        if plot:
+            plt.show()
+        else:
+            plt.close()
+
+        tsa_results["inverse_betas"] = inverse_betas
+        tsa_results["fig"] = tsa_fig
+        tsa_results["axes"] = tsa_ax
+
+        return tsa_results
 
 # The class that holds background window length+position and bootstrapping parameters
 class BootstrapWindow:
