@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-10-21
+@Updated: 2024-10-22
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -2426,7 +2426,7 @@ class Onset(Event):
 
         # SolO/EPT first channel does not provide proper data as of late
         if self.spacecraft=="solo" and self.sensor=="ept" and channels==0:
-        #    self.input_nan_onset_stats(channels)
+            self.input_nan_onset_stats(channels)
             return  None
 
         # Wind/3DP first electron channel and the first two proton channels don't provide proper data
@@ -2880,7 +2880,7 @@ class Onset(Event):
         return confidence_intervals
 
 
-    def tsa_per_channel(self, radial_distance, solar_wind_speed=400):
+    def tsa_per_channel(self, radial_distance=None, path_length=None, solar_wind_speed=400) -> dict:
         """
         Applies a time shift to all available energy channels accoridng to their kinetic energies
         and an assumed path of Parker spiral arc that they travelled.
@@ -2888,36 +2888,46 @@ class Onset(Event):
         Parameters:
         -----------
         radial_distance : {float} The radial distance of the observer from the Sun at the time of observation.
+
+        path_length : {float} Directly give the path length -> no calculation needed. This variable takes 
+                                precedence over radial_distance.
         
         solar_wind_speed : {int/float} Solar wind speed in km/s. If not given, default to 400 km/s.
         
         Returns: 
         ----------
-        tsa_times : {np.ndarray} The time-shifted timestamps.
+        tsa_times : {dict} The time-shifted timestamps.
         """
 
-        # The nominal Parker spiral length for a given radial distance and solar wind speed
-        nominal_path = path_length_calculator(distance=radial_distance, solar_wind=solar_wind_speed)
+        if radial_distance is None and path_length is None:
+            raise TypeError("Either 'radial_distance' or 'path_length' must be specified to apply TSA!")
 
-        # The mean speeds of the energetic particles
+        # The nominal Parker spiral length for a given radial distance and solar wind speed
+        if path_length is None:
+            path_length = path_length_calculator(distance=radial_distance, solar_wind=solar_wind_speed)
+
+        # The mean speeds of the energetic particles. The problem here is that the array
+        # requires knowledge of the channel indices. 
         sep_speeds = self.calculate_particle_speeds()
 
         # Init a list to collect time-shifted timestamps
-        tsa_times = []
-        for channel in self.onset_statistics:
+        tsa_times = {}
+        for i, channel in enumerate(self.onset_statistics):
             onset_stats = self.onset_statistics[channel]
-            tsa_times.append(tsa(t0 = onset_stats[0], L=nominal_path, v=sep_speeds[channel]))
+            tsa_times[channel] = tsa(t0 = onset_stats[0], L=path_length, v=sep_speeds[i])
 
-        return np.array(tsa_times)
+        return tsa_times
 
 
-    def tsa_plot(self, radial_distance, solar_wind_speed=400, ylim=None, plot=True, save=False, savepath=None):
+    def tsa_plot(self, radial_distance=None, path_length=None, solar_wind_speed=400, ylim=None, plot=True, save=False, savepath=None):
         """
         Applies tsa on all channels, and produces a scatter plot.
         
         Parameters:
         -----------
-        radial_distance : {float} Radial heliocentric distance in AUs.
+        radial_distance : {float} Radial heliocentric distance in AUs. Either this or <path_length> has to be specified.
+
+        path_length : {float} Distance for TSA in AUs. Either this or <radial_distance> has to be specified.
         
         solar_wind_speed : {int/float} Speed of the solar wind for Parker spiral caclulation in km/s.
                                         Defaults to 400 km/s if not given.
@@ -2935,12 +2945,15 @@ class Onset(Event):
         tsa_results : {dict} 
         """
 
+        if radial_distance is None and path_length is None:
+            raise TypeError("Either 'radial_distance' or 'path_length' must be specified for TSA!")
+
         species_str = "electron" if self.species=='e' else "proton"
 
         tsa_results = {}
 
         # Gets the time-shifted timestamps and save them to the dictionary
-        tsa_timestamps = self.tsa_per_channel(radial_distance=radial_distance, solar_wind_speed=solar_wind_speed)
+        tsa_timestamps = self.tsa_per_channel(radial_distance=radial_distance, path_length=path_length, solar_wind_speed=solar_wind_speed)
         tsa_results["tsa_timestamps"] = tsa_timestamps
 
         # The x-axis in terms of the inverse speed:
@@ -2954,7 +2967,8 @@ class Onset(Event):
         # Init the figure
         tsa_fig, tsa_ax = plt.subplots(figsize=STANDARD_FIGSIZE)
 
-        tsa_ax.scatter(inverse_betas, tsa_timestamps, s=135)
+        # tsa_timestamps is a dictionary, so remember to only get the values for plotting
+        tsa_ax.scatter(inverse_betas, tsa_timestamps.values(), s=135)
 
         tsa_ax.set_title(f"{self.spacecraft.upper()} / {self.sensor.upper()} {species_str} TSA", fontsize=TITLE_FONTSIZE)
 
