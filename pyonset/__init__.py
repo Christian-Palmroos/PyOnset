@@ -81,6 +81,15 @@ COLOR_SCHEME = {
     "2-sigma" : "blue"
 }
 
+SEPPY_SPACECRAFT = ("sta", "stb", "solo", "psp", "wind", "soho")
+SEPPY_SENSORS = {"sta" : ("sept", "het"),
+                 "stb" : ("sept", "het"),
+                 "solo" : ("ept", "het"),
+                 "psp" : ("isois_epilo", "isois_epihi"),
+                 "wind" : ("3dp"),
+                 "soho" : ("erne-hed", "ephin")
+                 }
+
 # We recommend to have at least this many data points in the background for good statistics
 MIN_RECOMMENDED_POINTS = 100
 
@@ -98,6 +107,14 @@ class Onset(Event):
             self.custom_data = False
             self.unit = r"Intensity [1/(cm$^{2}$ sr s MeV)]" if unit is None else unit
 
+            # Check here that the spacecraft and instrument are SEPpy-compatible.
+            # to provide the custom data.
+            if self.spacecraft not in SEPPY_SPACECRAFT:
+                raise Exception(f"Note that {self.spacecraft} is not a SEPpy-compatible spacecraft. You need to provide your own data with the keyword: 'data'.")
+
+            # if self.sensor not in SEPPY_SENSORS[self.spacecraft]:
+            #     raise Exception(f"Note that {self.sensor} is not a recognized instrument of {self.spacecraft}. You need to provide your own data with the keyword: 'data'.")
+
         else:
 
             self.start_date = start_date
@@ -113,16 +130,16 @@ class Onset(Event):
 
             if not isinstance(data,pd.DataFrame):
                 raise TypeError("Custom data needs to be provided as a DataFrame indexed by time!")
-            self.data = data.copy()
+            self.data = data.copy(deep=True)
             self.current_df_e = self.data
             self.current_df_i = self.current_df_e
-            self.unit = unit
+            self.unit = r"Intensity [1/(cm$^{2}$ sr s MeV)]" if unit is None else unit
 
             # Custom data flag prevents SEPpy functions from being called, as they would cause errors
             self.custom_data = True
 
             # Lets the user know that the object is initialized with custom settings
-            print("Unidentified spacecraft-sensor combination.")
+            print("Utilizing user-input data. Some SEPpy functionality may not work as intended.")
 
         # Everytime an onset is found any way, the last used channel should be updated
         self.last_used_channel = np.nan
