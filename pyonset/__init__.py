@@ -81,6 +81,9 @@ COLOR_SCHEME = {
     "2-sigma" : "blue"
 }
 
+ELECTRON_IDENTIFIERS = ("electrons", "electron", 'e')
+PROTON_IDENTIFIERS = ("protons", "proton", "ions", "ion", 'p', 'i', 'H')
+
 SEPPY_SPACECRAFT = ("sta", "stb", "solo", "psp", "wind", "soho")
 SEPPY_SENSORS = {"sta" : ("sept", "het"),
                  "stb" : ("sept", "het"),
@@ -282,6 +285,13 @@ class Onset(Event):
 
         return time_reso_str
 
+    def get_custom_channel_energies(self):
+        """
+        Gets the energy values that have been set by the user.
+        Returns energy channel low and high boundaries in eVs.
+        """
+        return self.channel_energy_lows, self.channel_energy_highs
+
     def add_bootstrap_window(self, window):
         """
         A little helper method to add bootstrapping windows to the class list
@@ -302,6 +312,51 @@ class Onset(Event):
         """
         nan_stats = [pd.NaT, pd.NaT, pd.NaT, pd.NaT, pd.NaT, pd.NaT]
         self.onset_statistics[key] = nan_stats
+
+    def set_data_frequency(self, freq):
+        """
+        Tries to set a frequency for the data. Useful especially incase of custom data.
+        
+        Parameters:
+        -----------
+        freq : {str}
+                A pandas-compatible time string that represents the frequency of 
+                the time series data, e.g., '24 s' or '1 min'.
+        """
+        self.data.index.freq = freq
+
+
+    def set_custom_channel_energies(self, low_bounds, high_bounds, unit="MeV"):
+        """
+        Sets the channel energy boundary values.
+        
+        Parameters:
+        -----------
+        low_bounds : {array-like}
+        
+        high_bounds : {array_like}
+        
+        unit : {str} default 'MeV'. Choose either 'eV', 'keV' or 'MeV'.
+        """
+
+        if len(low_bounds) != len(self.data.columns) or len(high_bounds) != len(self.data.columns):
+            raise ValueError("Either low_bounds or high_bounds has an incorrect amount of entries!")
+
+        if unit not in ("eV", "keV", "MeV"):
+            raise ValueError(f"Unit {unit} does not appear to be any of the recognized units of energy! Choose either 'eV', 'keV' or 'MeV'.")
+
+        if unit == "MeV":
+            self.channel_energy_lows = np.array([low*u.MeV.to("eV") for low in low_bounds])
+            self.channel_energy_highs = np.array([high*u.MeV.to("eV") for high in high_bounds])
+
+        if unit == "keV":
+            self.channel_energy_lows = np.array([low*u.keV.to("eV") for low in low_bounds])
+            self.channel_energy_highs = np.array([high*u.keV.to("eV") for high in high_bounds])
+
+        if unit == "eV":
+            self.channel_energy_lows = np.array([low for low in low_bounds])
+            self.channel_energy_highs = np.array([high for high in high_bounds])
+
 
     def cusum_onset(self, channels, background_range, viewing=None, resample=None, cusum_minutes=30, sigma=2, title=None, save=False, savepath=None, 
                     yscale='log', ylim=None, erase=None, xlim=None, show_stats=True, diagnostics=False, plot=True, fname:str=None):
@@ -2330,7 +2385,7 @@ class Onset(Event):
 
 
     def automatic_onset_stats(self, channels, background, viewing, erase, cusum_minutes:int=None, sample_size:float=0.5, 
-                              small_windows=None, stop=None, weights="uncertainty", limit_computation_time=True, sigma=2, 
+                              small_windows=None, stop=None, weights="inverse_variance", limit_computation_time=True, sigma=2, 
                               detrend:bool=True, prints:bool=False,
                               limit_averaging:str=None, fail_avg_stop:int=None):
         """
@@ -2357,9 +2412,10 @@ class Onset(Event):
                     A pandas-compatible time string that decides on how long to continue averaging data while making onset 
                     distributions. If None, data will be averaged up to the 1-sigma uncertainty of whatever the native data resolution
                     produces.
-        weights : {str} optional
-                    Choose weights for calculating the mean uncertainty. 'int_time' will weight uncertainties by their individual
-                    integrating times, while 'uncertainty' will weight small uncertainties more and large less.
+        weights : {str} optional (default: 'inverse_variance')
+                    Choose weights for calculating the mean uncertainty. 'inverse_variance' uses the inverse of the variance of the onset time distribution,
+                    'int_time' will weight uncertainties by their individual integrating times, while 'uncertainty' will use the inverse of the ~95% of the
+                    distribution as the weights.
         limit_computation_time : {bool}, default True
                     If enabled, skips all integration times above 10 minutes that are not multiples of 5. 
         sigma : {int, float} default 2
@@ -2379,6 +2435,9 @@ class Onset(Event):
         ----------
         stats_arr : {OnsetStatsArray}
         """
+
+        # A fine cadence is less than 1 minute -> requires computation time
+        FINE_CADENCE_SC = ("solo", "wind")
 
         def dt_str_to_int(stop):
             """
@@ -2443,7 +2502,7 @@ class Onset(Event):
 
         # SolO/EPT first channel does not provide proper data as of late
         if self.spacecraft=="solo" and self.sensor=="ept" and channels==0:
-            self.input_nan_onset_stats(channels)
+            self.input_nat_onset_stats(channels)
             return  None
 
         # Wind/3DP first electron channel and the first two proton channels don't provide proper data
@@ -2453,8 +2512,16 @@ class Onset(Event):
             return  None
 
         # The first round of onset statistics is acquired from 1 minute resolution, if computation time is limited 
-        if self.spacecraft in ("solo", "wind") and limit_computation_time:
+        if self.spacecraft in FINE_CADENCE_SC and limit_computation_time:
             first_resample = "1 min"
+        # Check also for custom data
+        elif self.custom_data:
+
+            if self.data.index.freq is None:
+                raise Exception("Could not infer the frequency of user data. Set the data frquency with set_data_frequency() -method to enable time-averaging.")
+            else:
+                first_resample = "1 min" if limit_computation_time else None
+
         else:
             first_resample = None
 
@@ -2623,7 +2690,7 @@ class Onset(Event):
 
 
     def onset_statistics_per_channel(self, background, viewing, channels=None, erase:list=None, cusum_minutes:int=30, sample_size:float=0.50, 
-                                     weights:str="uncertainty", detrend=True, limit_computation_time=True, average_to=None, print_output=False, 
+                                     weights:str="inverse_variance", detrend=True, limit_computation_time=True, average_to=None, print_output=False, 
                                      limit_averaging=None, fail_avg_stop:int=None, random_seed:int=None):
         """
         Wrapper method for automatic_onset_stats(), that completes full onset and uncertainty analysis for a single channel.
@@ -2646,9 +2713,9 @@ class Onset(Event):
         sample_size : {float}, optional
                     The fraction of the data points inside the background window that will be considered for each of the bootstrapped
                     runs of the method.
-        weights : {str}, optional
-                    Either 'uncertainty' to use the width of 2-sigma intervals as the basis for weighting timestamps, or 'int_time' to
-                    use the integration time as a basis for the weighting.
+        weights : {str}, optional (default: 'inverse_variance')
+                    Pick 'inverse_variance' to use inverse variance weighting, 'uncertainty' to use the width of 2-sigma intervals as 
+                    the basis for weighting timestamps, or 'int_time' to use the integration time as a basis for the weighting.
         detrend : {bool}, optional
                     Switch to apply detrending on the onset time distributions.
         limit_computation_time : {bool}, optional
@@ -2897,7 +2964,7 @@ class Onset(Event):
         return confidence_intervals
 
 
-    def tsa_per_channel(self, radial_distance=None, path_length=None, solar_wind_speed=400) -> dict:
+    def tsa_per_channel(self, radial_distance=None, path_length=None, solar_wind_speed=400, onset_times=None) -> dict:
         """
         Applies a time shift to all available energy channels accoridng to their kinetic energies
         and an assumed path of Parker spiral arc that they travelled.
@@ -2907,10 +2974,13 @@ class Onset(Event):
         radial_distance : {float} The radial distance of the observer from the Sun at the time of observation.
 
         path_length : {float} Directly give the path length -> no calculation needed. This variable takes 
-                                precedence over radial_distance.
-        
+                              precedence over radial_distance.
+
         solar_wind_speed : {int/float} Solar wind speed in km/s. If not given, default to 400 km/s.
-        
+
+        onset_times : {dict} Give input onset times as a dictionary, coupling the channel identifier to the timestamp. 
+                             If not given, use self.onset_statistics. (default=None)
+
         Returns: 
         ----------
         tsa_times : {dict} The time-shifted timestamps.
@@ -2924,19 +2994,37 @@ class Onset(Event):
             path_length = path_length_calculator(distance=radial_distance, solar_wind=solar_wind_speed)
 
         # The mean speeds of the energetic particles. The problem here is that the array
-        # requires knowledge of the channel indices. 
-        sep_speeds = self.calculate_particle_speeds()
+        # requires knowledge of the channel indices.
+        try:
+            sep_speeds = self.calculate_particle_speeds()
 
-        # Init a list to collect time-shifted timestamps
+        # The UnboundLocalError arises due to seppy.calculate_particle_speeds() not recognizing the
+        # energy values of the channels. Most likely because user has some custom data.
+        except UnboundLocalError:
+            sep_speeds = self.calculate_particle_speeds_custom()
+
+        if onset_times is None:
+            onset_times = self.onset_statistics
+        else:
+            # Check that every timestamp is in a list
+            try:
+                _ = onset_times[list(onset_times.keys())[0]][0]
+            except TypeError:
+                onset_times = {channel:[timestamp] for (channel,timestamp) in onset_times.items()}
+
+        # Init a dictionary to collect time-shifted timestamps
         tsa_times = {}
-        for i, channel in enumerate(self.onset_statistics):
-            onset_stats = self.onset_statistics[channel]
+
+        # Enumerating a dictionary yields i, the index of a key, and the key itself.
+        for i, channel in enumerate(onset_times):
+            onset_stats = onset_times[channel]
             tsa_times[channel] = tsa(t0 = onset_stats[0], L=path_length, v=sep_speeds[i])
 
         return tsa_times
 
 
-    def tsa_plot(self, radial_distance=None, path_length=None, solar_wind_speed=400, ylim=None, plot=True, save=False, savepath=None):
+    def tsa_plot(self, radial_distance=None, path_length=None, solar_wind_speed=400, ylim=None, 
+                 plot=True, save=False, savepath=None, onset_times=None):
         """
         Applies tsa on all channels, and produces a scatter plot.
         
@@ -2956,6 +3044,8 @@ class Onset(Event):
         save : {bool} Switch to save the plot.
 
         savepath : {str} A path to save the plot, if the parameter <save> is enabled.
+
+        onset_times : {dict} User-input onset times. If not give, default to using self.onset_statistics
         
         Returns:
         --------
@@ -2965,16 +3055,23 @@ class Onset(Event):
         if radial_distance is None and path_length is None:
             raise TypeError("Either 'radial_distance' or 'path_length' must be specified for TSA!")
 
-        species_str = "electron" if self.species=='e' else "proton"
+        species_str = "electron" if self.species in ELECTRON_IDENTIFIERS else "proton"
 
         tsa_results = {}
 
         # Gets the time-shifted timestamps and save them to the dictionary
-        tsa_timestamps = self.tsa_per_channel(radial_distance=radial_distance, path_length=path_length, solar_wind_speed=solar_wind_speed)
+        tsa_timestamps = self.tsa_per_channel(radial_distance=radial_distance, path_length=path_length, 
+                                              solar_wind_speed=solar_wind_speed, onset_times=onset_times)
         tsa_results["tsa_timestamps"] = tsa_timestamps
 
         # The x-axis in terms of the inverse speed:
-        inverse_betas = np.array([const.c.value/v for v in self.calculate_particle_speeds()])
+        try:
+            inverse_betas = np.array([const.c.value/v for v in self.calculate_particle_speeds()])
+
+        # The UnboundLocalError arises due to seppy.calculate_particle_speeds() not recognizing the
+        # energy values of the channels. Most likely because user has some custom data.
+        except UnboundLocalError:
+            inverse_betas = np.array([const.c.value/v for v in self.calculate_particle_speeds_custom()])
 
         # Stupid check and not general in its nature, but solo first channel is unavailable
         # so leave it out here
@@ -3014,6 +3111,38 @@ class Onset(Event):
         tsa_results["axes"] = tsa_ax
 
         return tsa_results
+
+    def calculate_particle_speeds_custom(self):
+        """
+        Calculates the average particle speeds by user-input channel energy boundaries.
+
+        Note that the method set_custom_channel_energies() must have been ran before this method can be utilized.
+        """
+
+        if self.species in ELECTRON_IDENTIFIERS:
+            m_species = const.m_e.value
+        elif self.species in PROTON_IDENTIFIERS:
+            m_species = const.m_p.value
+        else:
+            raise ValueError(f"The particle species {self.species} does not appear to be any of the recognized particle species. Can not calculate particle energy.")
+
+        # E = mc^2, a fundamental property of any object with mass
+        mass_energy = m_species * C_SQUARED
+        
+        # Get the energies of each energy channel, to calculate the mean energy of particles and ultimately
+        # To get the dimensionless speeds of the particles (beta)
+        e_lows, e_highs = self.get_custom_channel_energies()
+
+        mean_energies = np.sqrt(np.multiply(e_lows, e_highs))
+
+        # Transform kinetic energy from electron volts to joules
+        e_Joule = [((En*u.eV).to(u.J)).value for En in mean_energies]
+
+        # Beta, the unitless speed (v/c)
+        beta = [np.sqrt(1-((e_J/mass_energy + 1)**(-2))) for e_J in e_Joule]
+
+        return np.array(beta)*const.c.value
+
 
 # The class that holds background window length+position and bootstrapping parameters
 class BootstrapWindow:
