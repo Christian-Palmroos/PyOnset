@@ -24,7 +24,7 @@ Methods:
     Creates a quick-look time-series plot of all the channels included in the data of the object. 
 
 *  ``cusum_onset()``
-    Finds the onset time of an event for the given timeframe and background using the Poisson-CUSUM method. Creates a figure of       the time-series, showing the chosen background, background parameters ($\mu$ and $\mu_{d}$) and the onset time.
+    Finds the onset time of an event for the given timeframe and background using the Poisson-CUSUM method. Creates a figure of       the time-series, showing the chosen background, background parameters (${\\mu}$ and ${\\mu_{d}}$) and the onset time.
 
 *  ``onset_statistics_per_channel()``
     Automatically finds the onset time with the respective uncertainty for all of the chosen energy channels. The onset times and     uncertainties therein will be saved to the class attribute ``onset_statistics``, and used by the ``VDA()``-method. 
