@@ -12,7 +12,7 @@ The ´Onset´ class is the main tool of the Pyonset package. It inherits all the
 Attributes
 ----------
 
-*  ´onset_statistics´
+*  ´´onset_statistics´´
     Contains the channel-respective onset times and related uncertainties in a dictionary. The statistics are produced by the           ´onset_statistics_per_channel()´-method.
 
 Methods
