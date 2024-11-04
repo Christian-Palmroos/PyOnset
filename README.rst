@@ -52,7 +52,7 @@ Attributes:
     The amount of bootstrap runs for an onset time assuming constant integration time. For ample statistics, a value of e.g.,         1000 is recommended.
 
 *  ``n_shifts``
-    The number of times the background is shifted forwards. by default this value is 0, and it should only be explicitly given as     an input if the user knows what they're doing. Shifting the ``BootstrapWindow`` forward resets the number of bootstrap runs,          effectively multiplying the TOTAL number of bootstrap runs by ``n_shifts``+1. 
+    The number of times the background is shifted forwards. by default this value is 0, and it should only be explicitly given as     an input if the user knows what they're doing. Shifting the ``BootstrapWindow`` forward resets the number of bootstrap runs,          effectively multiplying the TOTAL number of bootstrap runs by ``n_shifts`` +1. 
 
 Methods:
 -------
