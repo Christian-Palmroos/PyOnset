@@ -4,10 +4,12 @@ The method is described in detail in Palmroos et al., 2024 (submitted).
 
 The full functionality of PyOnset is encompassed within three classes, which along with their respective methods are described here.
 
+$\sigma$
+
 Onset
 =====
 
-The ´Onset´ class is the main tool of the Pyonset package. It inherits all the functionality of the ´Event´ class from the SEPpy module (Palmroos et al., 2022), offering full backwards-compatibility. Perhaps the most notable feature of ´Onset´ is its ability to automatically download SEP data for all the SEPpy-supported missions (Solar Orbiter, Parker Solar Probe, STEREO-A&B, SOHO and Wind), and accept user-defined data for other missions in the form of Pandas DataFrames. 
+The ``Onset`` class is the main tool of the Pyonset package. It inherits all the functionality of the ``Event`` class from the SEPpy module (Palmroos et al., 2022), offering full backwards-compatibility. Perhaps the most notable feature of ``Onset`` is its ability to automatically download SEP data for all the SEPpy-supported missions (Solar Orbiter, Parker Solar Probe, STEREO-A&B, SOHO and Wind), and accept user-defined data for other missions in the form of Pandas DataFrames. 
 
 Attributes:
 ----------
@@ -25,7 +27,7 @@ Methods:
     Finds the onset time of an event for the given timeframe and background using the Poisson-CUSUM method. Creates a figure of       the time-series, showing the chosen background, background parameters ($\mu$ and $\mu_{d}$) and the onset time.
 
 *  ``onset_statistics_per_channel()``
-    Automatically finds the onset time with the respective uncertainty for all of the chosen energy channels. The onset times and       uncertainties therein will be saved to the class attribute ´onset_statistics´, and used by the ´VDA()´-method. 
+    Automatically finds the onset time with the respective uncertainty for all of the chosen energy channels. The onset times and     uncertainties therein will be saved to the class attribute ``onset_statistics``, and used by the ``VDA()``-method. 
 
 *  ``set_custom_channel_energies()``
     In case of custom input data, the low and high boundaries of the energy channels must be manually given to the class.             Otherwise e.g., ´VDA()´ method can not run.
