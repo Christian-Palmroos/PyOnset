@@ -18,7 +18,7 @@ Attributes
 Methods
 -------
 
-*  ´plot_all_channels()´
+*  ``plot_all_channels()``
     Creates a quick-look time-series plot of all the channels included in the data of the object. 
 
 *  ´cusum_onset()´
