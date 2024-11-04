@@ -4,7 +4,7 @@ The method is described in detail in Palmroos et al., 2024 (submitted).
 
 The full functionality of PyOnset is encompassed within three classes, which along with their respective methods are described here.
 
-\\sigma
+\\frac{1}{\pi}
 
 Onset
 =====
