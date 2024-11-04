@@ -4,7 +4,7 @@ The method is described in detail in Palmroos et al., 2024 (submitted).
 
 The full functionality of PyOnset is encompassed within three classes, which along with their respective methods are described here.
 
-$\sigma$
+\sigma
 
 Onset
 =====
@@ -30,7 +30,7 @@ Methods:
     Automatically finds the onset time with the respective uncertainty for all of the chosen energy channels. The onset times and     uncertainties therein will be saved to the class attribute ``onset_statistics``, and used by the ``VDA()``-method. 
 
 *  ``set_custom_channel_energies()``
-    In case of custom input data, the low and high boundaries of the energy channels must be manually given to the class.             Otherwise e.g., ´VDA()´ method can not run.
+    In case of custom input data, the low and high boundaries of the energy channels must be manually given to the class.             Otherwise e.g., ``VDA()`` method can not run.
 
 *  ``VDA()``
     Performs velocity dispersion analysis to the onset times found by ``onset_statistics_per_channel()``-method.
@@ -48,7 +48,7 @@ Attributes:
     A pandas-compatible datetime string that defines the starting point of the pre-event background, e.g., "2024-12-31 00:00".
 
 *  ``end``
-    Defines the ending point of the background window. See ´start´.
+    Defines the ending point of the background window. See ``start``.
 
 *  ``bootstraps``
     The amount of bootstrap runs for an onset time assuming constant integration time. For ample statistics, a value of e.g.,         1000 is recommended.
