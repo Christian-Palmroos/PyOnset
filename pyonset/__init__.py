@@ -2691,7 +2691,7 @@ class Onset(Event):
 
     def onset_statistics_per_channel(self, background, viewing, channels=None, erase:list=None, cusum_minutes:int=30, sample_size:float=0.50, 
                                      weights:str="inverse_variance", detrend=True, limit_computation_time=True, average_to=None, print_output=False, 
-                                     limit_averaging=None, fail_avg_stop:int=None, random_seed:int=None, sigma:int=None):
+                                     limit_averaging=None, fail_avg_stop:int=None, random_seed:int=None, sigma:int=2):
         """
         Wrapper method for automatic_onset_stats(), that completes full onset and uncertainty analysis for a single channel.
         Does a complete onset uncertainty analysis on, by default all, the energy channels for the given instrument.
