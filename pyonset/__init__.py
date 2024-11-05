@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-10-31
+@Updated: 2024-11-05
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -2691,7 +2691,7 @@ class Onset(Event):
 
     def onset_statistics_per_channel(self, background, viewing, channels=None, erase:list=None, cusum_minutes:int=30, sample_size:float=0.50, 
                                      weights:str="inverse_variance", detrend=True, limit_computation_time=True, average_to=None, print_output=False, 
-                                     limit_averaging=None, fail_avg_stop:int=None, random_seed:int=None):
+                                     limit_averaging=None, fail_avg_stop:int=None, random_seed:int=None, sigma:int=None):
         """
         Wrapper method for automatic_onset_stats(), that completes full onset and uncertainty analysis for a single channel.
         Does a complete onset uncertainty analysis on, by default all, the energy channels for the given instrument.
@@ -2713,6 +2713,8 @@ class Onset(Event):
         sample_size : {float}, optional
                     The fraction of the data points inside the background window that will be considered for each of the bootstrapped
                     runs of the method.
+        sigma : {int}, optional
+                    The multiplier for the standard deviation, sigma, in the Poisson-CUSUM method. Defaults to 2.
         weights : {str}, optional (default: 'inverse_variance')
                     Pick 'inverse_variance' to use inverse variance weighting, 'uncertainty' to use the width of 2-sigma intervals as 
                     the basis for weighting timestamps, or 'int_time' to use the integration time as a basis for the weighting.
@@ -2773,7 +2775,7 @@ class Onset(Event):
                 print(f"Channel {channel}:")
 
             # automatic_onset_stats() -method runs statistic_onset() for all different data integration times for a single channel
-            onset_uncertainty_stats = self.automatic_onset_stats(channels=channel, background=background, viewing=viewing, erase=erase,
+            onset_uncertainty_stats = self.automatic_onset_stats(channels=channel, background=background, viewing=viewing, erase=erase, sigma=sigma,
                                                                 stop=average_to, cusum_minutes=cusum_minutes, sample_size=sample_size, 
                                                                 weights=weights, detrend=detrend, limit_computation_time=limit_computation_time,
                                                                 prints=print_output, limit_averaging=limit_averaging, fail_avg_stop=fail_avg_stop)
