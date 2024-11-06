@@ -96,6 +96,10 @@ SEPPY_SENSORS = {"sta" : ("sept", "het"),
 # We recommend to have at least this many data points in the background for good statistics
 MIN_RECOMMENDED_POINTS = 100
 
+# SOHO / EPHIN e300 channel is invalid from this date onwards
+EPHIN_300_INVALID_ONWARDS = pd.to_datetime("2017-10-04 00:00:00")
+
+
 # A new class to inherit everything from serpentine Event, and to extend its scope of functionality
 class Onset(Event):
 
@@ -1804,7 +1808,7 @@ class Onset(Event):
             channels = self.get_all_channels()
 
             # Include a check here to get rid of channel 300 in EPHIN data after the switch-off
-            if self.sensor == "ephin" and self.start_date > pd.to_datetime("2017-10-04 00:00:00"):
+            if self.sensor == "ephin" and self.start_date > EPHIN_300_INVALID_ONWARDS:
                 channels = [c_id for c_id in channels if c_id != 300]
 
             for ch in channels:
@@ -1819,7 +1823,7 @@ class Onset(Event):
         if Onset:
 
             # The other set of onset times may belomng to a different particle species
-            if Onset.species in ("electron", "electrons", "ele", 'e'):
+            if Onset.species in ELECTRON_IDENTIFIERS:
                 m_species1, species_title1 = const.m_e.value, "electrons"
             else:
                 m_species1, species_title1 = const.m_p.value, "protons"
@@ -1851,7 +1855,7 @@ class Onset(Event):
                 channels1 = Onset.get_all_channels()
 
                 # Include a check here to get rid of channel 300 in EPHIN data after the switch-off
-                if Onset.sensor == "ephin" and Onset.start_date > pd.to_datetime("2017-10-04 00:00:00"):
+                if Onset.sensor == "ephin" and Onset.start_date > EPHIN_300_INVALID_ONWARDS:
                     channels1 = [c_id for c_id in channels1 if c_id != 300]
 
                 # If there was no input for onset times, init an empty array and fill it up with values from the object
