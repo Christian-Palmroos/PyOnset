@@ -254,8 +254,15 @@ class Onset(Event):
     def get_all_channels(self):
         """
         Returns a range(first,last+1) of all the channel identifiers for any unique instrument+species pair.
+
+        KeyError is thrown if the spacecraft+sensor+species -combination doesn't correspond to any of the
+        recognized channel lists. This is handled by using the self.data (pd.DataFrame) column names.
         """
-        return self.all_channels[f"{self.spacecraft}_{self.sensor}_{self.species}"]
+
+        try:
+            return self.all_channels[f"{self.spacecraft}_{self.sensor}_{self.species}"]
+        except KeyError:
+            return np.array(self.data.columns)
 
     def get_current_channel_str(self):
         """
@@ -289,8 +296,18 @@ class Onset(Event):
         """
         Gets the energy values that have been set by the user.
         Returns energy channel low and high boundaries in eVs.
+
+        Handles the AttributeError that is caused by non-defined energy boundary
+        values by printing the error, an explanation of how to fix it and returning None.
         """
-        return self.channel_energy_lows, self.channel_energy_highs
+
+        try:
+            return self.channel_energy_lows, self.channel_energy_highs
+        except AttributeError as e:
+            print(e)
+            print("This is caused by user-defined custom data, that has no defined energy channel boundary values.")
+            print("Define energy channel boundaries with 'set_custom_channel_energies()'!")
+            return None
 
     def add_bootstrap_window(self, window):
         """
@@ -1765,7 +1782,10 @@ class Onset(Event):
         # Get the energies of each energy channel, to calculate the mean energy of particles and ultimately
         # to get the dimensionless speeds of the particles (v/c = beta).
         # This method returns lower and higher energy bounds in electron volts
-        e_min, e_max = self.get_channel_energy_values()
+        if self.spacecraft in SEPPY_SPACECRAFT:
+            e_min, e_max = self.get_channel_energy_values()
+        else:
+            e_min, e_max = self.get_custom_channel_energies()
 
         # SOHO /EPHIN really has only 4 active channels, but 5th one still exists, causing an erroneous amount
         # of channel nominal energies and hence wrong sized mask (5 instead of 4). For now we just discard
@@ -1806,7 +1826,10 @@ class Onset(Event):
             mass_energy1 = m_species1 * C_SQUARED
 
             # First get the energies and nominal energies for the second instrument
-            e_min1, e_max1 = Onset.get_channel_energy_values()
+            if Onset.spacecraft in SEPPY_SPACECRAFT:
+                e_min1, e_max1 = Onset.get_channel_energy_values()
+            else:
+                e_min1, e_max1 = Onset.get_custom_channel_energies()
 
             # SOHO /EPHIN really has only 4 active channels, but 5th one still exists, causing an erroneous amount
             # of channel nominal energies and hence wrong sized mask (5 instead of 4). For now we just discard
