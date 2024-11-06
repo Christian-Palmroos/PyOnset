@@ -346,10 +346,20 @@ class Onset(Event):
         """
         self.data.index.freq = freq
 
+    def set_channel_strings(self, channel_lows, channel_highs, unit):
+        """
+        Sets the dictionary of channel energy strings, e.g., '45 - 55 keV'.
+        """
+        channel_en_dict = {}
+        for i, low in enumerate(channel_lows):
+            
+            channel_en_dict[self.data.columns[i]] = f"{low} - {channel_highs[i]} {unit}"
+        
+        self.channel_en_dict = channel_en_dict
 
     def set_custom_channel_energies(self, low_bounds, high_bounds, unit="MeV"):
         """
-        Sets the channel energy boundary values.
+        Sets the channel energy boundary values. Automatically updates self.channel_en_dict
         
         Parameters:
         -----------
@@ -377,6 +387,8 @@ class Onset(Event):
         if unit == "eV":
             self.channel_energy_lows = np.array([low for low in low_bounds])
             self.channel_energy_highs = np.array([high for high in high_bounds])
+        
+        self.set_channel_strings(channel_lows=low_bounds, channel_highs=high_bounds, unit=unit)
 
 
     def cusum_onset(self, channels, background_range, viewing=None, resample=None, cusum_minutes=30, sigma=2, title=None, save=False, savepath=None, 
