@@ -3568,7 +3568,7 @@ class OnsetStatsArray:
 
         if not title:
             # particle_str = "electrons" if self.species=='e' else "protons" if self.species=='p' else "ions"
-            ax.set_title(f"{self.spacecraft.upper()}/{self.sensor.upper()} ({self.channel_str}) {self.linked_object.s_identifier}\ndata integration time vs. onset distribution stats", 
+            ax.set_title(f"{self.spacecraft.upper()} / {self.sensor.upper()} ({self.channel_str}) {self.linked_object.s_identifier}\ndata integration time vs. onset distribution stats", 
                          fontsize=TITLE_FONTSIZE+9)
         else:
             ax.set_title(title, fontsize=TITLE_FONTSIZE+9)
