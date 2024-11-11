@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-11-05
+@Updated: 2024-11-11
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -99,6 +99,7 @@ MIN_RECOMMENDED_POINTS = 100
 # SOHO / EPHIN e300 channel is invalid from this date onwards
 EPHIN_300_INVALID_ONWARDS = pd.to_datetime("2017-10-04 00:00:00")
 
+CUSUM_WINDOW_RESOLUTION_MULTIPLIERS = (4,8,16,32)
 
 # A new class to inherit everything from serpentine Event, and to extend its scope of functionality
 class Onset(Event):
@@ -971,12 +972,11 @@ class Onset(Event):
         if cusum_minutes:
             cusum_windows = [calculate_cusum_window(time_reso, cusum_minutes)]
         else:
-            cusum_window_resolution_multipliers = (4,8,16,32)
             if time_reso[-3:]=="min":
-                cusum_minutes_list = [c*int(time_reso[:-3]) for c in cusum_window_resolution_multipliers]
+                cusum_minutes_list = [c*int(time_reso[:-3]) for c in CUSUM_WINDOW_RESOLUTION_MULTIPLIERS]
             else:
                 # For now just go with a fixed number of minutes if resolution is less than a minute
-                cusum_minutes_list = [c for c in cusum_window_resolution_multipliers]
+                cusum_minutes_list = [c for c in CUSUM_WINDOW_RESOLUTION_MULTIPLIERS]
                 # cusum_minutes_list = [int(c*int(time_reso[:-1])/60) for c in cusum_window_resolution_multipliers]
             cusum_windows = [calculate_cusum_window(time_reso, cusum_minutes) for cusum_minutes in cusum_minutes_list]
 
@@ -1782,15 +1782,17 @@ class Onset(Event):
         instrument = self.sensor.lower()
         species = self.species.lower()
 
-        if species in ("electron", "ele", 'e'):
+        if species in ELECTRON_IDENTIFIERS:
             species_title = "electrons"
             m_species = const.m_e.value
-        if species in ("ion", 'i', 'h'):
+        elif species in ("ion", 'i', 'h'):
             species_title = "ions"
             m_species = const.m_p.value
-        if species in ("protons", "proton", 'p'):
+        elif species in ("protons", "proton", 'p'):
             species_title = "protons"
             m_species = const.m_p.value
+        else:
+            raise Exception(f"Particle species '{self.species}' does not appear to be any of the recognized species!")
 
         # E=mc^2, a fundamental property of an object with mass
         mass_energy = m_species*C_SQUARED # ~511 keV for electrons
@@ -2086,7 +2088,7 @@ class Onset(Event):
             # Choose the reference index here before calculating the timedeltas for y-errors
             # self.onset_statistics : {channel_id : [mode, median, 1st_sigma_minus, 1st_sigma_plus, 2nd_sigma_minus, 2nd_sigma_plus]}
             if reference == "mode":
-                    ref_idx = 0
+                ref_idx = 0
             elif reference == "median":
                 ref_idx = 1
             else:
@@ -2106,8 +2108,12 @@ class Onset(Event):
                         plus_err = pd.Timedelta(seconds=1)
                         minus_err = pd.Timedelta(seconds=1)
 
-                    plus_errs = np.append(plus_errs, plus_err) if plus_err >= self.minimum_cadences[f"{spacecraft}_{instrument}"]/2 else np.append(plus_errs, pd.Timedelta(self.minimum_cadences[f"{spacecraft}_{instrument}"])/2)
-                    minus_errs = np.append(minus_errs, minus_err) if minus_err >= self.minimum_cadences[f"{spacecraft}_{instrument}"]/2 else np.append(minus_errs, pd.Timedelta(self.minimum_cadences[f"{spacecraft}_{instrument}"])/2)
+                    # The previous way of determining the validity of the ~95% confidence intervals here should be redundant now that the widths of 
+                    # the intervals and their boundaries are already checked when they are determined. Instead, just collect the errors to the arrays.
+                    # plus_errs = np.append(plus_errs, plus_err) if plus_err >= self.minimum_cadences[f"{spacecraft}_{instrument}"]/2 else np.append(plus_errs, pd.Timedelta(self.minimum_cadences[f"{spacecraft}_{instrument}"])/2)
+                    # minus_errs = np.append(minus_errs, minus_err) if minus_err >= self.minimum_cadences[f"{spacecraft}_{instrument}"]/2 else np.append(minus_errs, pd.Timedelta(self.minimum_cadences[f"{spacecraft}_{instrument}"])/2)
+                    plus_errs = np.append(plus_errs, plus_err)
+                    minus_errs = np.append(minus_errs, minus_err)
 
                 # Convert errors in time to seconds
                 plus_errs_secs = [err.seconds for err in plus_errs]
@@ -2399,9 +2405,9 @@ class Onset(Event):
                 else:
                     # Single spacecraft, single instrument
                     if self.viewing:
-                        ax.set_title(f"VDA, {spacecraft.upper()} {instrument.upper()} ({self.viewing}) {species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
+                        ax.set_title(f"VDA, {spacecraft.upper()} / {instrument.upper()} ({self.viewing}) {species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
                     else:
-                        ax.set_title(f"VDA, {spacecraft.upper()} {instrument.upper()} {species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
+                        ax.set_title(f"VDA, {spacecraft.upper()} / {instrument.upper()} {species_title}, {date_of_event}", fontsize=TITLE_FONTSIZE)
             else:
                 ax.set_title(title, fontsize=TITLE_FONTSIZE)
 
@@ -2425,7 +2431,7 @@ class Onset(Event):
 
     def automatic_onset_stats(self, channels, background, viewing, erase, cusum_minutes:int=None, sample_size:float=0.5, 
                               small_windows=None, stop=None, weights="inverse_variance", limit_computation_time=True, sigma=2, 
-                              detrend:bool=True, prints:bool=False,
+                              detrend:bool=True, prints:bool=False, custom_data_dt:str=None,
                               limit_averaging:str=None, fail_avg_stop:int=None):
         """
         Automates the uncertainty estimation for a single channel provided by Poisson-CUSUM-bootstrap hybrid method
@@ -2464,6 +2470,8 @@ class Onset(Event):
                     time by half of the data time resolution.
         prints : {bool}, optional
                     Switch to print information about which channels is being analyzed and what's its 1-sigma uncertainty.
+        custom_data_dt : {str}, optional
+                    In case of custom data, provide the native cadence of the data PRIOR to resampling.
         limit_averaging : {str}, optional
                     Pandas-compatible time string. Limits the averaging to a certain time. Leave to None to not limit averaging. 
         fail_avg_stop : {int}, optional
@@ -2553,19 +2561,20 @@ class Onset(Event):
         # The first round of onset statistics is acquired from 1 minute resolution, if computation time is limited 
         if self.spacecraft in FINE_CADENCE_SC and limit_computation_time:
             first_resample = "1 min"
-        # Check also for custom data
+        # Check if cadence is fine also for custom data
         elif self.custom_data:
+            if custom_data_dt is None:
+                custom_data_dt = self.data.index.freq if self.data.index.freq is not None else get_time_reso(self.data)
 
-            if self.data.index.freq is None:
-                raise Exception("Could not infer the frequency of user data. Set the data frquency with set_data_frequency() -method to enable time-averaging.")
-            else:
-                first_resample = "1 min" if limit_computation_time else None
+            freq_is_fine = (pd.Timedelta(custom_data_dt) <= pd.Timedelta("1 min"))
+
+            first_resample = "1 min" if freq_is_fine and limit_computation_time else None
 
         else:
             first_resample = None
 
         # SOHO/EPHIN E300 is deactivated from 2017 onward -> there will be no reasonable onset there
-        if self.spacecraft=="soho" and self.sensor=="ephin" and channels==300 and self.flux_series.index[0].year >= 2017:
+        if self.spacecraft=="soho" and self.sensor=="ephin" and channels==300 and self.flux_series.index[0] >= EPHIN_300_INVALID_ONWARDS:
             print("Channel deactivated because of failure mode D.")
             return None
 
@@ -2804,6 +2813,21 @@ class Onset(Event):
         else:
             raise TypeError(f"{type(channels)} is and incorrect type of argument 'channels'! It should be None, str=='all', tuple, list or range.")
 
+        # Recognize the base cadence here, before going in to automatic_onset_stats
+        if self.custom_data:
+
+            # Either the user hasn't provided a frequency to the data, or it's not possible due to irregular 
+            # timedelta between data points. Try to infer the most prevalent timedelta, and assume that it is
+            # a good representation of the time resolution.
+            if self.data.index.freq is None:
+                custom_data_dt = get_time_reso(self.data)
+
+                if print_output:
+                    print("Data frequency doesn't appear to be set. This can be done with set_data_frequency() -method.")
+                    print(f"Inferring the most probable time resolution: {custom_data_dt}")
+            else:
+                custom_data_dt = self.data.index.freq
+
         if print_output:
             background.print_max_recommended_reso()
 
@@ -2817,7 +2841,8 @@ class Onset(Event):
             onset_uncertainty_stats = self.automatic_onset_stats(channels=channel, background=background, viewing=viewing, erase=erase, sigma=sigma,
                                                                 stop=average_to, cusum_minutes=cusum_minutes, sample_size=sample_size, 
                                                                 weights=weights, detrend=detrend, limit_computation_time=limit_computation_time,
-                                                                prints=print_output, limit_averaging=limit_averaging, fail_avg_stop=fail_avg_stop)
+                                                                prints=print_output, limit_averaging=limit_averaging, fail_avg_stop=fail_avg_stop,
+                                                                custom_data_dt=custom_data_dt)
 
             # Add statistics to the array that holds statistics related to each individual channel
             uncertainty_stats_by_channel = np.append(uncertainty_stats_by_channel, onset_uncertainty_stats)
