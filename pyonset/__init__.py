@@ -271,7 +271,7 @@ class Onset(Event):
 
     def get_current_channel_str(self):
         """
-        Gets the string for the cuirrent energy channel
+        Gets the string for the current energy channel
         """
         return self.get_channel_energy_values(returns="str")[self.last_used_channel]
 
@@ -279,7 +279,8 @@ class Onset(Event):
         try:
             return self.minimum_cadences[f"{self.spacecraft}_{self.sensor}"]
         except KeyError:
-            return pd.Timedelta(self.data.index.freq)
+            # return pd.Timedelta(self.data.index.freq)
+            return pd.Timedelta(get_time_reso(self.data))
 
     def get_time_resolution_str(self, resample):
         # Choose resample as the averaging string if it exists
@@ -2566,6 +2567,7 @@ class Onset(Event):
             if custom_data_dt is None:
                 custom_data_dt = self.data.index.freq if self.data.index.freq is not None else get_time_reso(self.data)
 
+            # A fine cadence means less than 1 minute
             freq_is_fine = (pd.Timedelta(custom_data_dt) <= pd.Timedelta("1 min"))
 
             first_resample = "1 min" if freq_is_fine and limit_computation_time else None
@@ -2578,7 +2580,7 @@ class Onset(Event):
             print("Channel deactivated because of failure mode D.")
             return None
 
-        # Run statistic_onset() once to get the confidence intervals for the bare not resampled data
+        # Run statistic_onset() once to get the confidence intervals for the bare not resampled, or 1-minute, data
         first_run_stats, _ = self.statistic_onset(channels=channels, Window=background, viewing=viewing, 
                                             sample_size=sample_size, resample=first_resample, erase=erase, small_windows=small_windows,
                                             cusum_minutes=cusum_minutes, detrend=False, sigma_multiplier=sigma)
@@ -2603,15 +2605,27 @@ class Onset(Event):
 
                 # Most of the high-energy particle instruments have a time resolution of 1 min, so don't do averaging for them
                 # if uncertainty is something like 1 min 07 sec
-                if first_run_uncertainty_mins < 2 and self.spacecraft not in ("solo", "wind"):
+                if first_run_uncertainty_mins < 2 and self.spacecraft not in FINE_CADENCE_SC:
 
-                    stats_arr.calculate_weighted_uncertainty("int_time")
+                    stats_arr.calculate_weighted_uncertainty()
                     return stats_arr
 
                 else:
                     # SolO instruments and Wind/3DP have high cadence (< 1 min), so start integrating from 1 minute measurements
                     # unless limit_computation_time is enabled
-                    start_idx = 1 if self.spacecraft in ("solo", "wind") and not limit_computation_time else 2
+                    if not self.custom_data:
+                        start_idx = 1 if (self.spacecraft in FINE_CADENCE_SC and not limit_computation_time) else 2
+
+                    else:
+                        # In case of custom data, start from the base cadence. Except for if the cadence is fine, then
+                        # start from 1 minute
+                        if freq_is_fine and not limit_computation_time:
+                            start_idx = 1
+                        
+                        # If the cadence is not fine, then no matter if computation time is limited or not, we start
+                        # time-averaging from the cadence_in_minutes+1 onward, e.g., 10 min -> 10+1 == 11 
+                        else:
+                            start_idx = pd.Timedelta(custom_data_dt).seconds//60 + 1
 
                     # Initialize integration times only up to the amount of minutes that the first run had uncertainty
                     int_times = np.array([i for i in range(start_idx,first_run_uncertainty_mins+1)], dtype=int)
@@ -2633,7 +2647,7 @@ class Onset(Event):
 
                 # SolO instruments and Wind/3DP have high cadence (< 1 min), so start integrating from 1 minute measurements
                     # unless limit_computation_time is enabled
-                if self.spacecraft in ("solo", "wind") and not limit_computation_time:
+                if self.spacecraft in FINE_CADENCE_SC and not limit_computation_time:
                     int_times = np.array([i for i in range(1,stop_int+1)])
                 else:
                     int_times = np.array([i for i in range(2,stop_int+1)])
@@ -2641,7 +2655,7 @@ class Onset(Event):
         # Go here if no onset found at all
         else:
 
-            if self.spacecraft in ("solo", "wind") and not limit_computation_time:
+            if self.spacecraft in FINE_CADENCE_SC and not limit_computation_time:
                 try_avg_start = 1
             else:
                 try_avg_start = 2
@@ -2703,10 +2717,10 @@ class Onset(Event):
                         pass
 
 
-        # Here if int_times gets too long, coarsen it up a little from 10 minutes onward
+        # Here if int_times gets too long, coarsen it up a little from 15 minutes onward
         # Logic of this selection: preserve an element of int_times if it's at most 10 OR if it's divisible by 5
         if limit_computation_time:
-            int_times = int_times[np.where((int_times <= 10) | (int_times%5==0))]
+            int_times = int_times[np.where((int_times <= 15) | (int_times%5==0))]
 
         # If the user set some upper limit to the averaging, apply that limit here
         if isinstance(limit_averaging,str):
@@ -3986,12 +4000,12 @@ class OnsetStatsArray:
 
     def check_weighted_timestamps(self):
         """
-        Checks that the intervals boundaries are separated from the mode and the median by at least 
-        the native data resolution of the instrument. Moves them if not.
+        Checks that the intervals boundaries are separated from the mode and the median by at least half
+        of the native data resolution of the instrument. Moves them if not.
         """
 
         # We will not allow for a separation of less than the instrument resolution 
-        min_separation = self.linked_object.get_minimum_cadence()
+        min_separation = self.linked_object.get_minimum_cadence()/2
 
         if self.w_mode - self.w_sigma1_low_bound < min_separation:
             self.w_sigma1_low_bound = self.w_mode - min_separation
@@ -4542,7 +4556,7 @@ def find_earliest_possible_onset(flux_series, cusum_function, onset_time):
 
 # ==============================================================================================
 
-def get_time_reso(series):
+def get_time_reso(series) -> str:
     """
     Returns the time resolution of the input series.
 
@@ -4552,7 +4566,7 @@ def get_time_reso(series):
 
     Returns:
     ----------
-    resolution: str
+    resolution: {str}
             Pandas-compatible freqstr
     """
 
