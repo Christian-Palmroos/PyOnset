@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-11-11
+@Updated: 2024-11-13
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -2827,6 +2827,8 @@ class Onset(Event):
                     print(f"Inferring the most probable time resolution: {custom_data_dt}")
             else:
                 custom_data_dt = self.data.index.freq
+        else:
+            custom_data_dt = None
 
         if print_output:
             background.print_max_recommended_reso()
