@@ -17,8 +17,32 @@ except Exception:
     __version__ = '{version}'
 """.lstrip()
 
-setup(
-    use_scm_version={'write_to': os.path.join('pyonset', 'version.py'),
-                     'write_to_template': VERSION_TEMPLATE},
+# setup(
+#     use_scm_version={'write_to': os.path.join('pyonset', 'version.py'),
+#                      'write_to_template': VERSION_TEMPLATE},
 
+# )
+
+setup(
+    name="pyonset",
+    version="0.0.1",    
+    description="A python SEP event analysis software",
+    url="https://github.com/Christian-Palmroos/PyOnset",
+    author="Christian Palmroos",
+    author_email="chospa@utu.fi",
+    license="BSD 2-clause",
+    packages=["pyonset"],
+    install_requires=["numpy",
+                      "pandas",
+                      "scipy"                     
+                      ],
+
+    classifiers=[
+        "Development Status :: 1 - Planning",
+        "Intended Audience :: Science/Research",
+        "License :: OSI Approved :: BSD License",  
+        "Operating System :: POSIX :: Linux",        
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.10",
+    ],
 )
