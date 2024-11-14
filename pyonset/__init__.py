@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-11-13
+@Updated: 2024-11-14
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -2484,6 +2484,8 @@ class Onset(Event):
         stats_arr : {OnsetStatsArray}
         """
 
+        self.background = background
+
         # A fine cadence is less than 1 minute -> requires computation time
         FINE_CADENCE_SC = ("solo", "wind")
 
@@ -2568,7 +2570,7 @@ class Onset(Event):
                 custom_data_dt = self.data.index.freq if self.data.index.freq is not None else get_time_reso(self.data)
 
             # A fine cadence means less than 1 minute
-            freq_is_fine = (pd.Timedelta(custom_data_dt) <= pd.Timedelta("1 min"))
+            freq_is_fine = (pd.Timedelta(custom_data_dt) < pd.Timedelta("1 min"))
 
             first_resample = "1 min" if freq_is_fine and limit_computation_time else None
 
