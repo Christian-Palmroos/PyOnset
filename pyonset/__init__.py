@@ -1732,7 +1732,7 @@ class Onset(Event):
         plt.show()
 
 
-    def VDA(self, onset_times=np.array([]), Onset=None, energy:str='gmean', selection=None, 
+    def VDA(self, onset_times=None, Onset=None, energy:str='gmean', selection=None, 
             yerrs=None, reference:str="mode", title=None, ylim=None, plot=True, guess=None, save=False,
             savepath=None, grid=True, show_omitted=True):
         """
@@ -1740,8 +1740,8 @@ class Onset(Event):
 
         Parameters:
         -----------
-        onset_times : array-like, default empty numpy array
-                    List of onset times. If None, automatically acquired with cusum_onset()
+        onset_times : array-like, optional
+                    List of onset times. If None, automatically acquired from self.onset_statistics
         Onset : self@Onset
                     The second onset object if joint-VDA
         energy: str, default 'gmean'
@@ -1771,8 +1771,10 @@ class Onset(Event):
 
         Returns:
         ---------
-        axes: list[list]
-                    A list of all the relevant information to reproduce the analysis and plot.
+        output: dict
+                    A dictionary containing  inverse_betas, x_errors, onset_times, y_errors, path_length, injection_time,
+                    path_length uncertainty, injection_time uncertainty, residual variance (ODR),
+                    stopreason (ODR), fig and axes.
         """
 
         from scipy.stats import t as studentt
@@ -1806,6 +1808,9 @@ class Onset(Event):
         else:
             e_min, e_max = self.get_custom_channel_energies()
 
+         # Initialize the list of channels according to the sc and instrument used
+        channels = self.get_all_channels()
+
         # SOHO /EPHIN really has only 4 active channels, but 5th one still exists, causing an erroneous amount
         # of channel nominal energies and hence wrong sized mask (5 instead of 4). For now we just discard
         # the final entries fo these lists.
@@ -1816,11 +1821,8 @@ class Onset(Event):
         nominal_energies = calc_chnl_nominal_energy(e_min, e_max, mode=energy)
 
         # Check here if onset_times were given as an input. If not, use median/mode onset times and yerrs.
-        onset_times = np.array(onset_times) if len(onset_times) != 2 else onset_times[0]
+        onset_times = np.array([]) if onset_times is None else np.array(onset_times)
         if len(onset_times)==0:
-
-            # Initialize the list of channels according to the sc and instrument used
-            channels = self.get_all_channels()
 
             # Include a check here to get rid of channel 300 in EPHIN data after the switch-off
             if self.sensor == "ephin" and self.start_date > EPHIN_300_INVALID_ONWARDS:
@@ -2136,8 +2138,8 @@ class Onset(Event):
                     for i, ch in enumerate(channels):
 
                         try: 
-                            minus_err = self.onset_statistics[ch][ref_idx] - minus_timestamps[i] # the difference of a timestamp and a timedelta is a timedelta
-                            plus_err = plus_timestamps[i] - self.onset_statistics[ch][ref_idx]
+                            minus_err = minus_timestamps[i]
+                            plus_err = plus_timestamps[i]
                         except KeyError as e:
                             plus_err = pd.Timedelta(seconds=1)
                             minus_err = pd.Timedelta(seconds=1)
