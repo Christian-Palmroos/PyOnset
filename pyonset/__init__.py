@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-11-18
+@Updated: 2024-11-25
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -164,10 +164,13 @@ class Onset(Event):
 
         # Choosing the particle species identifier for the titles etc
         if self.species in ["electron", "electrons", 'e']:
+            self.species = 'e'
             self.s_identifier = "electrons"
         elif self.species in ["proton", "protons", 'p', 'H']:
+            self.species = 'p'
             self.s_identifier = "protons"
         elif self.species in ["ion", "ions", 'i']:
+            self.species = 'p'
             self.s_identifier = "ions"
         else:
             self.s_identifier = self.species
@@ -4005,11 +4008,12 @@ class OnsetStatsArray:
     def check_weighted_timestamps(self):
         """
         Checks that the intervals boundaries are separated from the mode and the median by at least half
-        of the native data resolution of the instrument. Moves them if not.
+        of the finest cadence used (minimum integration time). Moves them if not.
         """
 
-        # We will not allow for a separation of less than the instrument resolution 
-        min_separation = self.linked_object.get_minimum_cadence()/2
+        # We will not allow for a separation of less than the smalles integration time used
+        #min_separation = self.linked_object.get_minimum_cadence()/2
+        min_separation = pd.Timedelta(self.integration_times[0])/2
 
         if self.w_mode - self.w_sigma1_low_bound < min_separation:
             self.w_sigma1_low_bound = self.w_mode - min_separation
