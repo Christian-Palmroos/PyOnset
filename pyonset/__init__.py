@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-11-25
+@Updated: 2024-12-04
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -1780,6 +1780,10 @@ class Onset(Event):
                     stopreason (ODR), fig and axes.
         """
 
+        VDA_MARKERSIZE = 24
+        VDA_ELINEWIDTH = 2.2
+        VDA_CAPSIZE = 6.0
+
         from scipy.stats import t as studentt
 
         import numpy.ma as ma
@@ -1945,8 +1949,14 @@ class Onset(Event):
                         plus_err = pd.Timedelta(seconds=1)
                         minus_err = pd.Timedelta(seconds=1)
 
-                    plus_errs = np.append(plus_errs, plus_err) if plus_err >= self.minimum_cadences[f"{spacecraft}_{instrument}"]/2 else np.append(plus_errs, pd.Timedelta(self.minimum_cadences[f"{spacecraft}_{instrument}"])/2)
-                    minus_errs = np.append(minus_errs, minus_err) if minus_err >= self.minimum_cadences[f"{spacecraft}_{instrument}"]/2 else np.append(minus_errs, pd.Timedelta(self.minimum_cadences[f"{spacecraft}_{instrument}"])/2)
+                    # Before a check was done here to make sure that the errors are not smaller than half of the minimum
+                    # cadence of the respective instrument; this is now obsolete, as the errors are properly inspected
+                    # while the weighting is performed.
+                    # plus_errs = np.append(plus_errs, plus_err) if plus_err >= self.minimum_cadences[f"{spacecraft}_{instrument}"]/2 else np.append(plus_errs, pd.Timedelta(self.minimum_cadences[f"{spacecraft}_{instrument}"])/2)
+                    # minus_errs = np.append(minus_errs, minus_err) if minus_err >= self.minimum_cadences[f"{spacecraft}_{instrument}"]/2 else np.append(minus_errs, pd.Timedelta(self.minimum_cadences[f"{spacecraft}_{instrument}"])/2)
+                    plus_errs = np.append(plus_errs, plus_err)
+                    minus_errs = np.append(minus_errs, minus_err)
+
 
                 for ch in channels1:
 
@@ -1959,8 +1969,8 @@ class Onset(Event):
                         plus_err1 = pd.Timedelta(seconds=1)
                         minus_err1 = pd.Timedelta(seconds=1)
 
-                    plus_errs1 = np.append(plus_errs1, plus_err1) if plus_err1 >= Onset.minimum_cadences[f"{Onset.spacecraft}_{Onset.sensor}"]/2 else np.append(plus_errs1, pd.Timedelta(Onset.minimum_cadences[f"{Onset.spacecraft}_{Onset.sensor}"])/2)
-                    minus_errs1 = np.append(minus_errs1, minus_err1) if minus_err1 >= Onset.minimum_cadences[f"{Onset.spacecraft}_{Onset.sensor}"]/2 else np.append(minus_errs1, pd.Timedelta(Onset.minimum_cadences[f"{Onset.spacecraft}_{Onset.sensor}"])/2)
+                    plus_errs1 = np.append(plus_errs1, plus_err1)
+                    minus_errs1 = np.append(minus_errs1, minus_err1)
 
                 plus_errs_all = np.append(plus_errs, plus_errs1)
                 minus_errs_all = np.append(minus_errs, minus_errs1)
@@ -1978,33 +1988,58 @@ class Onset(Event):
                 y_errors_all = np.array([minus_errs_secs_all, plus_errs_secs_all])
 
             else:
-                # The y-directional error, which is the temporal uncertainty
-                try:
+                # The y-directional error was given by the user
+                # 4 arrays, so asymmetric plus and minus errors
+                if len(yerrs)==4:
 
-                    reso_str = get_time_reso(self.flux_series)
-                    reso_str1 = get_time_reso(Onset.flux_series)
+                    plus_errs, minus_errs = np.array([]), np.array([])
+                    plus_errs1, minus_errs1 = np.array([]), np.array([])
 
-                    time_error = [pd.Timedelta(reso_str) for _ in range(len(x_errors))]
-                    time_error1 = [pd.Timedelta(reso_str1) for _ in range(len(x_errors1))]
+                    minus_timestamps, plus_timestamps = yerrs[0], yerrs[1]
+                    minus_timestamps1, plus_timestamps1 = yerrs[0], yerrs[1]
 
-                except ValueError:
+                    for i, ch in enumerate(channels):
 
-                    # get_time_errors() attempts to manually extract the time errors of each data point
-                    time_error = get_time_errors(onset_times=onset_times, spacecraft=spacecraft)
-                    time_error1 = get_time_errors(onset_times=onset_times1, spacecraft=Onset.spacecraft.lower())
+                        try: 
+                            minus_err = minus_timestamps[i]
+                            plus_err = plus_timestamps[i]
+                        except KeyError as e:
+                            plus_err = pd.Timedelta(seconds=1)
+                            minus_err = pd.Timedelta(seconds=1)
+                        
+                        plus_errs = np.append(plus_errs, plus_err)
+                        minus_errs = np.append(minus_errs, minus_err)
 
-                    try:
-                        _ = str(time_error[0].seconds)
-                    # Indexerror is caused by all NaTs -> no point in doing VDA
-                    except IndexError:
-                        return None
+                    y_errors_all = np.array([plus_errs,minus_errs])
 
+                    # Convert errors in time to seconds
+                    plus_errs_secs = [err.seconds for err in plus_errs]
+                    minus_errs_secs = [err.seconds for err in minus_errs]
 
-                # These are for the fitting function
-                y_errors = [err.seconds for err in time_error]
-                y_errors1 = [err.seconds for err in time_error1]
+                    y_errors_all_secs = np.array([plus_errs_secs,minus_errs_secs])
 
-                y_errors_all = np.concatenate((y_errors, y_errors1))
+                # 2 arrays -> symmetric errors for both
+                elif len(yerrs)==2:
+
+                    # Check the first entry of yerrs. If it's not a timedelta, then it's the reach of the error
+                    if not isinstance(yerrs[0][0], (pd.Timedelta, datetime.timedelta)):
+                        y_errors_all = np.array([])  #= yerrs
+
+                        for i, ch in enumerate(channels):
+                            y_err = yerrs[i] - self.onset_statistics[ch][ref_idx]
+                            y_errors_all = np.append(y_errors, y_err)
+
+                    else:
+                        # These are for the fitting function
+                        y_errors = yerrs[0]
+                        y_errors1 = yerrs[1]
+
+                        y_errors_all = np.concatenate((y_errors, y_errors1))
+                        y_errors_all_secs = [err.seconds for err in y_errors_all]
+
+                # 1 array -> wrong
+                else:
+                    raise ValueError("The y-errors for two-instrument VDA must be in form of 4 or 2 lists!")
 
             # Numpy masks work so that True values get masked as invalid, while False remains unaltered
             mask = np.isnan(date_in_sec_all)
@@ -2016,6 +2051,7 @@ class Onset(Event):
             inverse_beta_corrected = ma.array(inverse_beta_corrected, mask=mask)
             x_errors_all = ma.array(x_errors_all, mask=mask)
 
+            # Asymmetric errors / errors not defined by the user
             if len(y_errors_all)==2:
                 y_errors_plot = ma.array([minus_errs, plus_errs], mask=[np.isnan(date_in_sec),np.isnan(date_in_sec)])
                 y_errors1_plot = ma.array([minus_errs1, plus_errs1], mask=[np.isnan(date_in_sec1),np.isnan(date_in_sec1)])
@@ -2023,10 +2059,10 @@ class Onset(Event):
                 y_errors_all_secs = ma.array([minus_errs_secs_all, plus_errs_secs_all], mask=[mask,mask])
 
             else:
-                y_errors_plot = ma.array(time_error, mask=np.isnan(date_in_sec))
-                y_errors1_plot = ma.array(time_error1, mask=np.isnan(date_in_sec1))
-                y_errors_all_plot = ma.array(y_errors_all, mask=[mask,mask])
-                y_errors_all_secs = ma.array(y_errors_all, mask=mask)
+                y_errors_plot = ma.array(y_errors, mask=np.isnan(date_in_sec))
+                y_errors1_plot = ma.array(y_errors1, mask=np.isnan(date_in_sec1))
+                y_errors_all_plot = ma.array(y_errors_all, mask=mask)
+                y_errors_all_secs = ma.array(y_errors_all_secs, mask=mask)
 
             # After masking NaNs and Nats away, slice
             # which datapoints to consider for the fit
@@ -2338,9 +2374,8 @@ class Onset(Event):
             if Onset and len(inverse_beta1)>0:
                 label1 = Onset.sensor.upper() if mass_energy==mass_energy1 else f"{Onset.sensor.upper()} {species_title1}"
                 ax.errorbar(inverse_beta1, onset_times1, yerr=y_errors1_plot, xerr=[x_errors_upper1, x_errors_lower1], 
-                        fmt='o', elinewidth=1.5, capsize=4.5, zorder=1, label=label1)
+                        fmt='o', elinewidth=VDA_ELINEWIDTH, capsize=VDA_CAPSIZE, zorder=1, label=label1)
 
-            # The reason xerr seems to be wrong way is that 'upper' refers to the upper ENERGY boundary, which corresponds to the LOWER 1/beta boundary
             if not Onset:
                 label = "onset times"
             else:
@@ -2348,15 +2383,15 @@ class Onset(Event):
 
             if len(inverse_beta) > 0:
                 ax.errorbar(inverse_beta, onset_times, yerr=y_errors_plot, xerr=[x_errors_upper, x_errors_lower], 
-                            fmt='o', elinewidth=1.5, capsize=4.5, zorder=1, label=label)
+                            fmt='o', elinewidth=VDA_ELINEWIDTH, capsize=VDA_CAPSIZE, zorder=1, label=label)
 
             # Omitted datapoints, paint all points white and then those not omitted blue (+ red) again
             if omitted_exists:
                 if Onset:
-                    ax.scatter(inverse_beta1[selection1], onset_times1[selection1], s=11, zorder=3)
+                    ax.scatter(inverse_beta1[selection1], onset_times1[selection1], s=VDA_MARKERSIZE, zorder=3)
 
-                ax.scatter(inverse_beta_all, onset_times_all, c="white", s=10, zorder=2)
-                ax.scatter(inverse_beta[selection], onset_times[selection], s=11, zorder=3)
+                ax.scatter(inverse_beta_all, onset_times_all, c="white", s=VDA_MARKERSIZE-5, zorder=2)
+                ax.scatter(inverse_beta[selection], onset_times[selection], s=VDA_MARKERSIZE, zorder=3)
 
             # The odr fit
             # Here we need to first take the selection of i_beta_all and ONLY after that take the compressed form, which is the set of valid values
@@ -5256,8 +5291,15 @@ def get_figdate(dt_array):
             figdate = date
             break
 
-    
-    return figdate.date().strftime("%Y-%m-%d")
+    try:
+        date = figdate.date().strftime("%Y-%m-%d")
+
+    # An attributeerror is cause by figdate being numpy.datetime64 -object. handle
+    # it appropriately
+    except AttributeError:
+        date = np.datetime_as_string(figdate, unit='D')
+
+    return date
 
 
 def _isnotebook():
