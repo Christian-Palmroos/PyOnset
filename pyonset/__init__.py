@@ -35,15 +35,15 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 from IPython.display import Markdown
 
-import seppy.tools # this is imported first to avert ImportError in the data loaders that are imported after
+# import seppy.tools # this is imported first to avert ImportError in the data loaders that are imported after
 import seppy.util as util
 from seppy.loader.psp import (calc_av_en_flux_PSP_EPIHI,
                               calc_av_en_flux_PSP_EPILO, psp_isois_load)
 from seppy.loader.soho import calc_av_en_flux_ERNE, soho_load
-from seppy.loader.solo import epd_load
+# from seppy.loader.solo import epd_load
 from seppy.loader.stereo import calc_av_en_flux_HET as calc_av_en_flux_ST_HET
 from seppy.loader.stereo import calc_av_en_flux_SEPT, stereo_load
-from seppy.loader.wind import wind3dp_load
+# from seppy.loader.wind import wind3dp_load
 from seppy.tools import Event
 
 """
@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2024-12-04
+@Updated: 2025-01-15
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
