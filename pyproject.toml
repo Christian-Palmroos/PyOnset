@@ -35,6 +35,7 @@ zip-safe = false
 include-package-data = true
 
 [tool.setuptools.packages.find]
+include = ["pyonset*"]
 exclude = ["pyonset._dev*"]
 
 [tool.setuptools_scm]
