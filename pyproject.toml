@@ -21,7 +21,7 @@ dependencies = [
     "numpy",
     "pandas",
     "seppy",
-    "sunpy>=4.1.0]"
+    "sunpy>=4.1.0",
 ]
 dynamic = ["version"]
 
