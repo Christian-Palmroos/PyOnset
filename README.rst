@@ -10,6 +10,10 @@ Installation
 ========
 To install PyOnset package, input ``pip install git+https://github.com/Christian-Palmroos/PyOnset`` to your terminal.
 
+Usage of PyOnset
+========
+PyOnset works by utilizing three distinct classes to contain data, define background information of the event, find an onset and calculate accompanying uncertainty, and finally to perform VDA. The three classes are introduced and described below, with short explanations of their attributes and unique class methods.
+
 Onset
 =====
 
