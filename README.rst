@@ -1,8 +1,10 @@
 
-A software package to determine SEP event onset times and associated uncertainties.
+A software package to determine solar energetic particle (SEP) event onset times and associated uncertainties.
 The method is described in detail in Palmroos et al., 2025 (accepted).
 
-The full functionality of PyOnset is encompassed within three classes, which along with their respective methods are described here.
+PyOnset is an extension to the SEPpy package (https://github.com/serpentine-h2020/SEPpy, described in the paper Palmroos et al., 2022), that was developed mainly for SEP event uncertainty calculation via the Poisson-CUSUM bootstrap hybrid method. However, PyOnset also offers quick-look SEP time series plotting utilities, classical Poisson-CUSUM -based onset determination functionality and even automatized velocity dispersion analysis (VDA) capabilities.
+
+The full functionality of PyOnset is encompassed within three classes, which along with their respective methods are described here. A simple minimal working example in the form of a Jupyter Notebook comes ready with this repository. The example notebook showcases data loading for Solar Orbiter / HET proton data, automatized onset determination and uncertainty calculation for all of the energy channels, and VDA for a certain SEP event.
 
 Installation
 ========
@@ -11,7 +13,7 @@ To install PyOnset package, input ``pip install git+https://github.com/Christian
 Onset
 =====
 
-The ``Onset`` class is the main tool of the Pyonset package. It inherits all the functionality of the ``Event`` class from the SEPpy module (Palmroos et al., 2022), offering full backwards-compatibility. Perhaps the most notable feature of ``Onset`` is its ability to automatically download SEP data for all the SEPpy-supported missions (Solar Orbiter, Parker Solar Probe, STEREO-A&B, SOHO and Wind), and accept user-defined data for other missions in the form of Pandas DataFrames. 
+The ``Onset`` class is the main tool of the Pyonset package. It inherits all the functionality of the ``Event`` class from the SEPpy module, offering full backwards-compatibility. Perhaps the most notable feature of ``Onset`` is its ability to automatically download SEP data for all the SEPpy-supported missions (Solar Orbiter, Parker Solar Probe, STEREO-A&B, SOHO and Wind), and accept user-defined data for other missions in the form of Pandas DataFrames.
 
 Attributes:
 ----------
