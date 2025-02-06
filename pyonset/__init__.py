@@ -1,7 +1,7 @@
 
 from .version import version as __version__
 
-# __all__ = []  # https://stackoverflow.com/questions/44834/what-does-all-mean-in-python
+# __all__ = []  # defines which functions, variables etc. will be loaded when running "from pyonset import *"
 
 import datetime
 import glob
