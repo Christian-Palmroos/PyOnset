@@ -14,7 +14,15 @@ license = { file = "licenses/LICENSE.rst" }
 authors = [
   { name = "Christian Palmroos", email = "chospa@utu.fi" },
 ]
-dependencies = []
+dependencies = [
+    "astropy",
+    "ipywidgets",
+    "matplotlib",
+    "numpy",
+    "pandas",
+    "seppy",
+    "sunpy>=4.1.0]"
+]
 dynamic = ["version"]
 
 [project.optional-dependencies]
