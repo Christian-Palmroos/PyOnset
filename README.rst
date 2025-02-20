@@ -1,14 +1,23 @@
 
 A software package to determine solar energetic particle (SEP) event onset times and associated uncertainties.
-The method is described in detail in Palmroos et al., 2025 (accepted).
+The method is described in detail in the paper Palmroos et al., (2025).
 
 PyOnset is an extension to the SEPpy package (https://github.com/serpentine-h2020/SEPpy, described in the paper Palmroos et al., 2022), that was developed mainly for SEP event uncertainty calculation via the Poisson-CUSUM bootstrap hybrid method. However, PyOnset also offers quick-look SEP time series plotting utilities, classical Poisson-CUSUM -based onset determination functionality and even automatized velocity dispersion analysis (VDA) capabilities.
 
 The full functionality of PyOnset is encompassed within three classes, which along with their respective methods are described here. A simple minimal working example in the form of a Jupyter Notebook comes ready with this repository. The example notebook showcases data loading for Solar Orbiter / HET proton data, automatized onset determination and uncertainty calculation for all of the energy channels, and VDA for a certain SEP event.
 
+*This software has been tested in Ubuntu 20.04.6 LTS with Python version 3.12.8.*
+
 Installation
 ========
 To install PyOnset package, input ``pip install git+https://github.com/Christian-Palmroos/PyOnset`` to your terminal.
+
+1. This tool requires a recent Python (>=3.10) installation. [Following SunPy's approach, we recommend installing Python via miniforge (click for instructions).](https://docs.sunpy.org/en/stable/tutorial/installation.html#installing-python)
+2. Clone the repository https://github.com/Christian-Palmroos/PyOnset to get access to the Jupyter Notebook that demonstrates the usage of the PyOnset package.
+3. Open a terminal or the miniforge prompt and move to the directory where the code is.
+4. *(Optional, but highly recommended)* Create a new virtual environment (e.g., `conda create --name pyonset`, or `python -m venv venv_pyonset` if you don't use miniforge/conda) and activate it (e.g., `conda activate pyonset`, or `source venv_pyonset/bin/activate` if you don't use miniforge/conda).
+5. Install the Python dependencies from the *requirements.txt* file with `pip install -r requirements.txt`
+6. Open the minimal working example Jupyter Notebook by running `jupyter-lab examples/pyonset_minimal_demo.ipynb`
 
 Usage of PyOnset
 ========
