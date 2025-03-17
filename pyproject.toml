@@ -20,10 +20,10 @@ dependencies = [
     "matplotlib",
     "numpy",
     "pandas",
+    "scipy",
     "seppy",
     "setuptools",
     "sunpy>=4.1.0",
-    "scipy",
 ]
 dynamic = ["version"]
 
