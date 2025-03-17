@@ -315,6 +315,17 @@ class Onset(Event):
             print("Define energy channel boundaries with 'set_custom_channel_energies()'!")
             return None
 
+    def _get_species_identifier(self):
+        """
+        Gets (returns) the plural form, particle species string identifier, e.g., 'electrons'.
+        """
+        if self.species in ELECTRON_IDENTIFIERS:
+            return "electrons"
+        if self.species in ["proton", 'p', 'H']:
+            return "protons"
+        if self.species in ["ion", 'i']:
+            return "ions"
+
     def add_bootstrap_window(self, window):
         """
         A little helper method to add bootstrapping windows to the class list
@@ -782,12 +793,7 @@ class Onset(Event):
         if title is None:
 
             # Choosing the particle species identifier for the title
-            if self.species in ["electron", 'e']:
-                s_identifier = 'electrons'
-            if self.species in ["proton", 'p', 'H']:
-                s_identifier = 'protons'
-            if self.species in ["ion", 'i']:
-                s_identifier = 'ions'
+            s_identifier = self._get_species_identifier()
 
             if viewing:
                 ax.set_title(f"{self.spacecraft.upper()}/{self.sensor.upper()} {s_identifier}\n"
@@ -2459,6 +2465,9 @@ class Onset(Event):
                     savestr = f"{savepath}{os.sep}VDA_{spacecraft}_{instrument}_{self.viewing}_{species_title}_{date_of_event}.png" if self.viewing else f"{savepath}{os.sep}VDA_{spacecraft}_{instrument}_{species_title}_{date_of_event}.png"
                 plt.savefig(savestr, transparent=False,
                         facecolor="white", bbox_inches="tight")
+
+            # Showing the figure (must be done AFTER saving)
+            plt.show()
 
         # Add the figure and axes of it to the return
         output["fig"] = fig
@@ -5316,5 +5325,5 @@ def _isnotebook():
 # this will be ran when importing
 # set Jupyter notebook cells to 100% screen size:
 if _isnotebook():
-    from IPython.core.display import HTML, display
+    from IPython.display import HTML, display
     display(HTML(data="""<style> div#notebook-container { width: 99%; } div#menubar-container { width: 85%; } div#maintoolbar-container { width: 99%; } </style>"""))
