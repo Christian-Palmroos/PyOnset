@@ -6,7 +6,7 @@ PyOnset is an extension to the SEPpy package (https://github.com/serpentine-h202
 
 The full functionality of PyOnset is encompassed within three classes, which along with their respective methods are described here. A simple minimal working example in the form of a Jupyter Notebook comes ready with this repository. The example notebook showcases data loading for Solar Orbiter / HET proton data, automatized onset determination and uncertainty calculation for all of the energy channels, and VDA for a certain SEP event.
 
-*This software has been tested in Ubuntu 20.04.6 LTS with Python version 3.12.8.*
+*This software has been tested in Ubuntu 20.04.6 LTS & 24.04.2 LTS, with Python version 3.12.8.*
 
 Installation
 ========
@@ -16,8 +16,7 @@ To install PyOnset package, input ``pip install git+https://github.com/Christian
 2. Clone the repository https://github.com/Christian-Palmroos/PyOnset to get access to the Jupyter Notebook that demonstrates the usage of the PyOnset package.
 3. Open a terminal or the miniforge prompt and move to the directory where the code is.
 4. *(Optional, but highly recommended)* Create a new virtual environment (e.g., `conda create --name pyonset`, or `python -m venv venv_pyonset` if you don't use miniforge/conda) and activate it (e.g., `conda activate pyonset`, or `source venv_pyonset/bin/activate` if you don't use miniforge/conda).
-5. Install the Python dependencies from the *requirements.txt* file with `pip install -r requirements.txt`
-6. Open the minimal working example Jupyter Notebook by running `jupyter-lab examples/pyonset_minimal_demo.ipynb`
+5. Open the minimal working example Jupyter Notebook by running `jupyter-lab examples/pyonset_minimal_demo.ipynb`
 
 Usage of PyOnset
 ========

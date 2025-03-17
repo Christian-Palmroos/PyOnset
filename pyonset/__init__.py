@@ -3,6 +3,9 @@ from .version import version as __version__
 
 # __all__ = []  # defines which functions, variables etc. will be loaded when running "from pyonset import *"
 
+# For checking Python version
+import sys
+
 import datetime
 import glob
 import os
@@ -610,11 +613,11 @@ class Onset(Event):
 
         # Background mean
         ax.axhline(y=onset_stats[0], linewidth=2, color=color_dict["bg_mean"], linestyle= "--", 
-                    label=r'$\mu_{a}$ for background intensity')
+                    label=r"$\mu_{a}$ for background intensity")
 
         # Background mean + n*std
         ax.axhline(y=onset_stats[1], linewidth=2, color=color_dict["bg_mean"], linestyle= ':',
-                    label=r'$\mu_{d}$ for background intensity')
+                    label=r"$\mu_{d}$ for background intensity")
 
         # Background shaded area
         if isinstance(background_range, BootstrapWindow):
@@ -863,7 +866,7 @@ class Onset(Event):
                     Controls if the onset times are 'de-trended', i.e., shifted forward in time by 0.5*time_resolution - 30s. Does not 
                     apply to 1min data.
         sigma_multiplier : {int, float} default 2
-                    The multiplier for the $\mu_{d}$ variable in the CUSUM method.
+                    The multiplier for the $\\mu_{d}$ variable in the CUSUM method.
 
         Returns:
         -----------
@@ -2399,7 +2402,7 @@ class Onset(Event):
             # The odr fit
             # Here we need to first take the selection of i_beta_all and ONLY after that take the compressed form, which is the set of valid values
             ax.plot(inverse_beta_all[selection_all].compressed(), odr_fit, ls='--',
-                label=f"L: {np.round(slope,3):.3f} $\pm$ {np.round(slope_uncertainty,3):.3f} AU\nt_inj: {rel_time_str} $\pm$ {str(t_inj_uncertainty)[7:]}")
+                label=f"L: {np.round(slope,3):.3f} $\\pm$ {np.round(slope_uncertainty,3):.3f} AU\nt_inj: {rel_time_str} $\\pm$ {str(t_inj_uncertainty)[7:]}")
 
             ax.set_xlabel(r"1/$\beta$", fontsize = AXLABEL_FONTSIZE)
 
@@ -2469,9 +2472,9 @@ class Onset(Event):
             # Showing the figure (must be done AFTER saving)
             plt.show()
 
-        # Add the figure and axes of it to the return
-        output["fig"] = fig
-        output["axes"] = ax
+            # Add the figure and axes of it to the return
+            output["fig"] = fig
+            output["axes"] = ax
 
         return output
 
@@ -2511,7 +2514,7 @@ class Onset(Event):
         limit_computation_time : {bool}, default True
                     If enabled, skips all integration times above 10 minutes that are not multiples of 5. 
         sigma : {int, float} default 2
-                    The multiplier for the $\mu_{d}$ variable in the CUSUM method.
+                    The multiplier for the $\\mu_{d}$ variable in the CUSUM method.
         detrend : {bool}, default True
                     Switch to apply a shift on all but the native data distributions such that the onset times are shifted backwards in
                     time by half of the data time resolution.
@@ -5325,5 +5328,13 @@ def _isnotebook():
 # this will be ran when importing
 # set Jupyter notebook cells to 100% screen size:
 if _isnotebook():
-    from IPython.display import HTML, display
-    display(HTML(data="""<style> div#notebook-container { width: 99%; } div#menubar-container { width: 85%; } div#maintoolbar-container { width: 99%; } </style>"""))
+    python_major_vers, python_minor_vers = sys.version_info[0:2]
+    if python_major_vers < 3:
+        print(f"Detecting user Python version: {sys.version}")
+        raise ImportError("Python major version < 3 is not supported!")
+    if python_minor_vers < 9:
+        print(f"Detecting user Python version: {sys.version}")
+        raise ImportError("Python versions < 3.9 are not compatible with IPython > 7.14. Importing display impossible.")
+    else:
+        from IPython.display import HTML, display
+        display(HTML(data="""<style> div#notebook-container { width: 99%; } div#menubar-container { width: 85%; } div#maintoolbar-container { width: 99%; } </style>"""))
