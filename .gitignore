@@ -160,3 +160,6 @@ Icon
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# Local data files shouldn't be tracked:
+examples/data/*
