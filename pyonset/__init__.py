@@ -125,6 +125,23 @@ class Onset(Event):
 
         else:
 
+            # Copy-pasted from seppy.tools.Event initializer, to keep internal format of variables
+            # consistent
+            if spacecraft == "Solar Orbiter":
+                spacecraft = "solo"
+            if spacecraft == "STEREO-A":
+                spacecraft = "sta"
+            if spacecraft == "STEREO-B":
+                spacecraft = "stb"
+
+            if sensor in ["ERNE-HED"]:
+                sensor = "ERNE"
+
+            if species in ("protons", "ions"):
+                species = 'p'
+            if species in ("electrons", "electron"):
+                species = 'e'
+
             self.start_date = start_date
             self.end_date = end_date
             self.spacecraft = spacecraft
