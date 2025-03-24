@@ -2627,8 +2627,9 @@ class Onset(Event):
         if self.spacecraft=="wind" and self.species=='p' and channels in (0,1):
             return  None
 
-        # The first round of onset statistics is acquired from 1 minute resolution, if computation time is limited 
-        if self.spacecraft in FINE_CADENCE_SC and limit_computation_time:
+        # The first round of onset statistics is acquired from 1 minute resolution, if computation time is limited, but 
+        # only if data is NOT custom data.
+        if self.spacecraft in FINE_CADENCE_SC and limit_computation_time and not self.custom_data:
             first_resample = "1 min"
         # Check if cadence is fine also for custom data
         elif self.custom_data:
