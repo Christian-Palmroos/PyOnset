@@ -1832,8 +1832,8 @@ class Onset(Event):
 
         # Get the energies of each energy channel, to calculate the mean energy of particles and ultimately
         # to get the dimensionless speeds of the particles (v/c = beta).
-        # This method returns lower and higher energy bounds in electron volts
-        if self.spacecraft in SEPPY_SPACECRAFT:
+        # These methods return the lower and higher energy bounds in *electron volts*
+        if self.spacecraft in SEPPY_SPACECRAFT and not self.custom_data:
             e_min, e_max = self.get_channel_energy_values()
         else:
             e_min, e_max = self.get_custom_channel_energies()
