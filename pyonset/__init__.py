@@ -573,142 +573,140 @@ class Onset(Event):
         # Before starting the plot, save the original rcParam options and update to new ones
         original_rcparams = self.save_and_update_rcparams("onset_tool")
 
-        fig, ax = plt.subplots(figsize=STANDARD_FIGSIZE)
-
-        # Setting the x-axis limits
-        if xlim is None:
-            xlim = [time[0], time[-1]]
-        else:
-
-            # Check that xlim makes sense
-            if xlim[0] == xlim[1]:
-                raise Exception("xlim[0] and xlim[1] cannot be the same time!")
-
-            xlim[0], xlim[1] = pd.to_datetime(xlim[0]), pd.to_datetime(xlim[1])
-
-        # Just make sure that the user did not mess up their x-axis limits and the background for the cusum function
-        if (background_range is not None) and (xlim is not None):
-            # Check if background is separated from plot range by over a day, issue a warning if so, but don't
-            if (background_start < xlim[0] - datetime.timedelta(days=1) and background_start < xlim[1] - datetime.timedelta(days=1)) or \
-               (background_end > xlim[0] + datetime.timedelta(days=1) and background_end > xlim[1] + datetime.timedelta(days=1)):
-                background_warning = "NOTICE that your background_range is separated from plot_range by over a day.\nIf this was intentional you may ignore this warning."
-                warnings.warn(message=background_warning)
-
-        # Figure limits and scale
-        flux_in_plot = flux_series.loc[(flux_series.index < xlim[-1])&(flux_series.index >= xlim[0])]
-        ylim = set_fig_ylimits(ax=ax, flux_series=flux_in_plot, ylim=ylim)
-        ax.set_xlim(xlim[0], xlim[1])
-        ax.set_yscale(yscale)
-
-        # The measurements. kw where dictates where the step happens -> "mid" for at the middle of the bin
-        ax.step(time, flux_series.values, c="C0", where="mid")
-
-        if erase is not None:
-            ax.scatter(glitches.index, glitches.values, s=3, c='maroon')
-            if diagnostics:
-                print("omitted values:")
-                print(glitches)
-
-        # These are for bughunting
-        if diagnostics:
-            ax.step(time, onset_stats[-3], color="darkgreen", label=r"$I_{z-score}$")
-            ax.step(time, onset_stats[-2], color="maroon", label="CUSUM")
-            ax.axhline(y=onset_stats[2], ls="--", color='k', label='k')
-            ax.axhline(y=onset_stats[3], ls="-.", color='k', label='h')
-
-        # Onset time
-        if onset_found:
-            ax.axvline(x=onset_stats[-1], linewidth=1.5, color=color_dict["onset_time"], linestyle= '-', 
-                        label="onset time")
-
-            # Textbox indicating onset time
-            onset_timestr = onset_stats[-1].strftime("%H:%M:%S")
-            plabel = AnchoredText(f"Onset time: {onset_timestr} ", prop=dict(size=TXTBOX_SIZE), frameon=True, loc="lower right") #str(onset_stats[-1])[:19]
-            plabel.patch.set_boxstyle("round, pad=0., rounding_size=0.2")
-            plabel.patch.set_linewidth(2.0)
-            ax.add_artist(plabel)
-
-        # Background mean
-        ax.axhline(y=onset_stats[0], linewidth=2, color=color_dict["bg_mean"], linestyle= "--", 
-                    label=r"$\mu_{a}$ for background intensity")
-
-        # Background mean + n*std
-        ax.axhline(y=onset_stats[1], linewidth=2, color=color_dict["bg_mean"], linestyle= ':',
-                    label=r"$\mu_{d}$ for background intensity")
-
-        # Background shaded area
-        if isinstance(background_range, BootstrapWindow):
-            background_range.draw_background(ax=ax)
-        else:
-            ax.axvspan(xmin=background_start, xmax=background_end,
-                        color=color_dict["bg"], label="Background", alpha=0.15)
-
-        # Plot the earliest possible onset time, mean of medians and confidence intervals if they're found
-        if show_stats:
-
-            # Mean of median onsets accompanied by their confidence intervals
-            if self.mean_of_medians_onset_acquired:
-
-                ax.axvline(x=self.mean_of_medians_onset, linewidth=1.5, color="magenta", linestyle='-',
-                        label="mean of medians onset")
-
-                ax.axvspan(xmin=self.conf1_low, xmax=self.conf1_high, color="red", alpha=0.3, label="~68 % confidence")
-                ax.axvspan(xmin=self.conf2_low, xmax=self.conf2_high, color="blue", alpha=0.3, label="~95 % confidence")
-
-
-        ax.set_xlabel(f"Time ({time[0].year})", fontsize=AXLABEL_FONTSIZE)
-        ax.set_ylabel(self.unit, fontsize=AXLABEL_FONTSIZE)
-
-        # Date tick locator and formatter
-        ax.xaxis_date()
-        set_standard_ticks(ax=ax)
-
-        utc_dt_format1 = DateFormatter('%H:%M \n%m-%d')
-        ax.xaxis.set_major_formatter(utc_dt_format1)
-
-        # Setting the title
-        if title is None:
-
-            if viewing:
-                ax.set_title(f"{spacecraft}/{self.sensor.upper()} ({viewing}) {en_channel_string} {self.s_identifier}\n{time_reso} data", fontsize=TITLE_FONTSIZE)
-            else:
-                ax.set_title(f"{spacecraft}/{self.sensor.upper()} {en_channel_string} {self.s_identifier}\n{time_reso} data", fontsize=TITLE_FONTSIZE)
-
-        else:
-            ax.set_title(title, fontsize=TITLE_FONTSIZE)
-
-        if diagnostics:
-            ax.legend(loc="best", fontsize=LEGEND_SIZE)
-
-        # Attach the figure to class attribute even if not saving the figure
-        self.fig, self.ax = fig, ax
-
-        if save:
-            if savepath is None:
-                savepath = CURRENT_PATH
-
-            # A custom name for the figure
-            if fname is not None:
-                fig.savefig(fname=f"{savepath}{os.sep}{fname}",
-                            facecolor="white", transparent=False, bbox_inches="tight")
-
-            # Use a default name for the figure
-            else:
-
-                if spacecraft.lower() in ["bepicolombo", "bepi"]:
-                    plt.savefig(f"{savepath}{os.sep}{self.spacecraft}{self.sensor}_side{viewing}_{self.species}_{channels}_onset.png", transparent=False,
-                            facecolor='white', bbox_inches='tight')
-                elif viewing != "" and viewing is not None:
-                    plt.savefig(f"{savepath}{os.sep}{self.spacecraft}{self.sensor}_{viewing.lower()}_{self.species}_{channels}_onset.png", transparent=False,
-                            facecolor='white', bbox_inches='tight')
-                else:
-                    plt.savefig(f"{savepath}{os.sep}{self.spacecraft}{self.sensor}_{self.species}_{channels[:]}_onset.png", transparent=False,
-                            facecolor='white', bbox_inches='tight')
-
         if plot:
+            fig, ax = plt.subplots(figsize=STANDARD_FIGSIZE)
+
+            # Setting the x-axis limits
+            if xlim is None:
+                xlim = [time[0], time[-1]]
+            else:
+
+                # Check that xlim makes sense
+                if xlim[0] == xlim[1]:
+                    raise Exception("xlim[0] and xlim[1] cannot be the same time!")
+
+                xlim[0], xlim[1] = pd.to_datetime(xlim[0]), pd.to_datetime(xlim[1])
+
+            # Just make sure that the user did not mess up their x-axis limits and the background for the cusum function
+            if (background_range is not None) and (xlim is not None):
+                # Check if background is separated from plot range by over a day, issue a warning if so, but don't
+                if (background_start < xlim[0] - datetime.timedelta(days=1) and background_start < xlim[1] - datetime.timedelta(days=1)) or \
+                (background_end > xlim[0] + datetime.timedelta(days=1) and background_end > xlim[1] + datetime.timedelta(days=1)):
+                    background_warning = "NOTICE that your background_range is separated from plot_range by over a day.\nIf this was intentional you may ignore this warning."
+                    warnings.warn(message=background_warning)
+
+            # Figure limits and scale
+            flux_in_plot = flux_series.loc[(flux_series.index < xlim[-1])&(flux_series.index >= xlim[0])]
+            ylim = set_fig_ylimits(ax=ax, flux_series=flux_in_plot, ylim=ylim)
+            ax.set_xlim(xlim[0], xlim[1])
+            ax.set_yscale(yscale)
+
+            # The measurements. kw where dictates where the step happens -> "mid" for at the middle of the bin
+            ax.step(time, flux_series.values, c="C0", where="mid")
+
+            if erase is not None:
+                ax.scatter(glitches.index, glitches.values, s=3, c='maroon')
+                if diagnostics:
+                    print("omitted values:")
+                    print(glitches)
+
+            # These are for bughunting
+            if diagnostics:
+                ax.step(time, onset_stats[-3], color="darkgreen", label=r"$I_{z-score}$")
+                ax.step(time, onset_stats[-2], color="maroon", label="CUSUM")
+                ax.axhline(y=onset_stats[2], ls="--", color='k', label='k')
+                ax.axhline(y=onset_stats[3], ls="-.", color='k', label='h')
+
+            # Onset time
+            if onset_found:
+                ax.axvline(x=onset_stats[-1], linewidth=1.5, color=color_dict["onset_time"], linestyle= '-', 
+                            label="onset time")
+
+                # Textbox indicating onset time
+                onset_timestr = onset_stats[-1].strftime("%H:%M:%S")
+                plabel = AnchoredText(f"Onset time: {onset_timestr} ", prop=dict(size=TXTBOX_SIZE), frameon=True, loc="lower right") #str(onset_stats[-1])[:19]
+                plabel.patch.set_boxstyle("round, pad=0., rounding_size=0.2")
+                plabel.patch.set_linewidth(2.0)
+                ax.add_artist(plabel)
+
+            # Background mean
+            ax.axhline(y=onset_stats[0], linewidth=2, color=color_dict["bg_mean"], linestyle= "--", 
+                        label=r"$\mu_{a}$ for background intensity")
+
+            # Background mean + n*std
+            ax.axhline(y=onset_stats[1], linewidth=2, color=color_dict["bg_mean"], linestyle= ':',
+                        label=r"$\mu_{d}$ for background intensity")
+
+            # Background shaded area
+            if isinstance(background_range, BootstrapWindow):
+                background_range.draw_background(ax=ax)
+            else:
+                ax.axvspan(xmin=background_start, xmax=background_end,
+                            color=color_dict["bg"], label="Background", alpha=0.15)
+
+            # Plot the earliest possible onset time, mean of medians and confidence intervals if they're found
+            if show_stats:
+
+                # Mean of median onsets accompanied by their confidence intervals
+                if self.mean_of_medians_onset_acquired:
+
+                    ax.axvline(x=self.mean_of_medians_onset, linewidth=1.5, color="magenta", linestyle='-',
+                            label="mean of medians onset")
+
+                    ax.axvspan(xmin=self.conf1_low, xmax=self.conf1_high, color="red", alpha=0.3, label="~68 % confidence")
+                    ax.axvspan(xmin=self.conf2_low, xmax=self.conf2_high, color="blue", alpha=0.3, label="~95 % confidence")
+
+
+            ax.set_xlabel(f"Time ({time[0].year})", fontsize=AXLABEL_FONTSIZE)
+            ax.set_ylabel(self.unit, fontsize=AXLABEL_FONTSIZE)
+
+            # Date tick locator and formatter
+            ax.xaxis_date()
+            set_standard_ticks(ax=ax)
+
+            utc_dt_format1 = DateFormatter('%H:%M \n%m-%d')
+            ax.xaxis.set_major_formatter(utc_dt_format1)
+
+            # Setting the title
+            if title is None:
+
+                if viewing:
+                    ax.set_title(f"{spacecraft}/{self.sensor.upper()} ({viewing}) {en_channel_string} {self.s_identifier}\n{time_reso} data", fontsize=TITLE_FONTSIZE)
+                else:
+                    ax.set_title(f"{spacecraft}/{self.sensor.upper()} {en_channel_string} {self.s_identifier}\n{time_reso} data", fontsize=TITLE_FONTSIZE)
+
+            else:
+                ax.set_title(title, fontsize=TITLE_FONTSIZE)
+
+            if diagnostics:
+                ax.legend(loc="best", fontsize=LEGEND_SIZE)
+
+            # Attach the figure to class attribute even if not saving the figure
+            self.fig, self.ax = fig, ax
+
+            if save:
+                if savepath is None:
+                    savepath = CURRENT_PATH
+
+                # A custom name for the figure
+                if fname is not None:
+                    fig.savefig(fname=f"{savepath}{os.sep}{fname}",
+                                facecolor="white", transparent=False, bbox_inches="tight")
+
+                # Use a default name for the figure
+                else:
+
+                    if spacecraft.lower() in ["bepicolombo", "bepi"]:
+                        plt.savefig(f"{savepath}{os.sep}{self.spacecraft}{self.sensor}_side{viewing}_{self.species}_{channels}_onset.png", transparent=False,
+                                facecolor='white', bbox_inches='tight')
+                    elif viewing != "" and viewing is not None:
+                        plt.savefig(f"{savepath}{os.sep}{self.spacecraft}{self.sensor}_{viewing.lower()}_{self.species}_{channels}_onset.png", transparent=False,
+                                facecolor='white', bbox_inches='tight')
+                    else:
+                        plt.savefig(f"{savepath}{os.sep}{self.spacecraft}{self.sensor}_{self.species}_{channels[:]}_onset.png", transparent=False,
+                                facecolor='white', bbox_inches='tight')
+
             plt.show()
-        else:
-            plt.close()
 
         return onset_stats, flux_series
 
@@ -5266,8 +5264,13 @@ def set_fig_ylimits(ax:plt.Axes, ylim:list=None, flux_series:pd.Series=None):
     # In case not otherwise specified, set the lower limit to half of the smallest plotted value,
     # and the higher limit to 1.5 times the highest value
     if ylim is None:
-        ylim = [np.nanmin(flux_series[flux_series > 0]) * 0.5,
-                np.nanmax(flux_series) * 1.5]
+        try:
+            ylim = [np.nanmin(flux_series[flux_series > 0]) * 0.5,
+                    np.nanmax(flux_series) * 1.5]
+        except ValueError:
+            # This error is caused by a zero-size array to which operation minimum has no identity
+            # -> can't manually set reasonable limits. Let plt dynamically handle it.
+            return ax.get_ylim()
 
         # If the lower y-boundary is some ridiculously small number, adjust the y-axis a little
         if np.log10(ylim[1])-np.log10(ylim[0]) > 10:
