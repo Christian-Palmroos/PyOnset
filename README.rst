@@ -1,24 +1,47 @@
 
-A software package to determine solar energetic particle (SEP) event onset times and associated uncertainties.
-The method is described in detail in the paper Palmroos et al., (2025).
+# PyOnset
 
-PyOnset is an extension to the SEPpy package (https://github.com/serpentine-h2020/SEPpy, described in the paper Palmroos et al., 2022), that was developed mainly for SEP event uncertainty calculation via the Poisson-CUSUM bootstrap hybrid method. However, PyOnset also offers quick-look SEP time series plotting utilities, classical Poisson-CUSUM -based onset determination functionality and even automatized velocity dispersion analysis (VDA) capabilities.
+- [About](#about)
+- [Installation](#installation)
+    - [Update](#update)
+- [Usage](#usage)
+- [Contributing](#contributing)
+- [Citing](#citing)
+
+
+## About
+========
+A software package to determine solar energetic particle (SEP) event onset times and associated uncertainties.
+The method that the software employs is described in detail in the paper [Palmroos et al., (2025)](https://doi.org/10.1051/0004-6361/202451280 ).
+
+PyOnset is an extension to the SEPpy package (https://github.com/serpentine-h2020/SEPpy, described in the paper [Palmroos et al., 2022](https://doi.org/10.3389/fspas.2022.1073578)), that was developed mainly for SEP event uncertainty calculation via the Poisson-CUSUM bootstrap hybrid method. However, PyOnset also offers quick-look SEP time series plotting utilities, classical Poisson-CUSUM -based onset determination functionality and even automatized velocity dispersion analysis (VDA) capabilities.
 
 The full functionality of PyOnset is encompassed within three classes, which along with their respective methods are described here. A simple minimal working example in the form of a Jupyter Notebook comes ready with this repository. The example notebook showcases data loading for Solar Orbiter / HET proton data, automatized onset determination and uncertainty calculation for all of the energy channels, and VDA for a certain SEP event.
 
 *This software has been tested in Ubuntu 20.04.6 LTS & 24.04.2 LTS, with Python version 3.12.8.*
 
-Installation
+## Installation
 ========
-To install PyOnset package, input ``pip install git+https://github.com/Christian-Palmroos/PyOnset`` to your terminal.
+To install PyOnset package, input the following to your terminal:
+.. code:: bash
+
+pip install git+https://github.com/Christian-Palmroos/PyOnset
 
 1. This tool requires a recent Python (>=3.10) installation. [Following SunPy's approach, we recommend installing Python via miniforge (click for instructions).](https://docs.sunpy.org/en/stable/tutorial/installation.html#installing-python)
-2. Clone the repository https://github.com/Christian-Palmroos/PyOnset to get access to the Jupyter Notebook that demonstrates the usage of the PyOnset package.
+2. Clone the repository https://github.com/Christian-Palmroos/PyOnset to get access to the Jupyter Notebooks that demonstrate the usage of the PyOnset package.
 3. Open a terminal or the miniforge prompt and move to the directory where the code is.
 4. *(Optional, but highly recommended)* Create a new virtual environment (e.g., `conda create --name pyonset`, or `python -m venv venv_pyonset` if you don't use miniforge/conda) and activate it (e.g., `conda activate pyonset`, or `source venv_pyonset/bin/activate` if you don't use miniforge/conda).
 5. Open the minimal working example Jupyter Notebook by running `jupyter-lab examples/pyonset_minimal_demo.ipynb`
 
-Usage of PyOnset
+### Update
+==========
+
+To update your *PyOnset* to the latest version, run the following in your terminal:
+.. code:: bash
+
+pip install --upgrade git+https://github.com/Christian-Palmroos/PyOnset
+
+## Usage
 ========
 PyOnset works by utilizing three distinct classes to contain data, define background information of the event, find an onset and calculate accompanying uncertainty, and finally to perform VDA. The three classes are introduced and described below, with short explanations of their attributes and unique class methods.
 
@@ -110,3 +133,21 @@ Methods:
 
 *  ``show_onset_statistics()``
     For a given integration time (given by index, see ``onset_time_histogram()``) plots the ~68% and ~95% confidence intervals on     top of the intensity time series as red and blue shadings, respectively.
+
+
+## Contributing
+================
+
+Contributions to this tool are very much welcome and encouraged! Contributions can take the form of [issues](https://github.com/Christian-Palmroos/PyOnset/issues) to report bugs and request new features or [pull requests](https://github.com/Christian-Palmroos/PyOnset/pulls) to submit new code.
+
+If you don't have a GitHub account, you can [sign-up for free here](https://github.com/signup), or you can also reach out to us with feedback by sending an email to christian.o.palmroos@utu.fi.
+
+
+## Citation
+--------
+
+Please cite the following paper if you use **pyonset** in your publication:
+
+C. Palmroos, N. Dresing, J. Gieseler, C. P. Gutiérrez and R. Vainio (2025).
+A new method for determining the onset times of solar energetic particles and their uncertainties: Poisson-CUSUM bootstrap hybrid method. *Astronomy & Astrophysics* 624, A221 `doi:10.1051/0004-6361/202451280 <https://doi.org/10.1051/0004-6361/202451280>`_
+
