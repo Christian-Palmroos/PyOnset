@@ -1,5 +1,5 @@
 
-from .version import version as __version__
+#from .version import version as __version__
 
 # __all__ = []  # defines which functions, variables etc. will be loaded when running "from pyonset import *"
 
@@ -51,7 +51,7 @@ A library that holds the Onset, BackgroundWindow and OnsetStatsArray classes.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2025-01-15
+@Updated: 2025-05-05
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -425,7 +425,8 @@ class Onset(Event):
 
 
     def cusum_onset(self, channels, background_range, viewing=None, resample=None, cusum_minutes=30, sigma=2, title=None, save=False, savepath=None, 
-                    yscale='log', ylim=None, erase=None, xlim=None, show_stats=True, diagnostics=False, plot=True, fname:str=None):
+                    yscale='log', ylim=None, erase=None, xlim=None, show_stats=True, diagnostics=False, plot=True, fname:str=None,
+                    experimental_k:bool=False, poisson_test:bool=False):
         """
         Does a Poisson-CUSUM-method-based onset analysis for given OnsetAnalysis object.
         Based on an earlier version by: Eleanna Asvestari <eleanna.asvestari@helsinki.fi>
@@ -466,7 +467,9 @@ class Onset(Event):
                 Switch to produce a plot. 
         fname : {str} default None
                 A custom name for the figure if saved.
-
+        experimental_k : {bool} default False
+                Normalizes the CUSUM k-parameter to sigma*sigma_multiplier (std*n)
+        poisson_test : {bool}, default False
         Returns:
         ---------
         onset_stats: list
@@ -500,12 +503,9 @@ class Onset(Event):
             self.last_used_channel = int(channels)
             channels = [int(channels)]
 
+        # Background as a list/tuple of datetime strings
         if isinstance(background_range,(list,tuple)):
             background_start, background_end = pd.to_datetime(background_range[0]), pd.to_datetime(background_range[1])
-        
-        if isinstance(background_range, BootstrapWindow):
-            background_start, background_end = background_range.start, background_range.end
-            self.background = background_range
 
         # By default we do not use custom data
         if not self.custom_data:
@@ -527,6 +527,17 @@ class Onset(Event):
         # Here just to make sure, check that the flux series is cut correctly
         if len(flux_series) == 0:
             raise Exception("Intensity data selection is empty! Check that plot limits are correct.")
+
+        # Checking of background
+        if isinstance(background_range, BootstrapWindow):
+            background_start, background_end = background_range.start, background_range.end
+            self.background = background_range
+
+            # Attach the selected segment of flux_series to the BootstrapWindow. 
+            background_range.background_selection = flux_series.loc[(flux_series.index >= background_start) & (flux_series.index < background_end)]
+
+            if poisson_test:
+                poisson_test_result = background_range.fast_poisson_test()
 
         # The series is indexed by time
         time = flux_series.index
@@ -553,7 +564,7 @@ class Onset(Event):
         # onset_stats = [ma, md, k_round, h, norm_channel, cusum, onset_time]
         if self.unit not in ("Counting rate [1/s]", "Count rate [1/s]", "Counting rate", "Count rate", "counting rate", \
                              "count rate", "Counting_rate", "Count_rate", "Counts", "counts"):
-            onset_stats = onset_determination(background_stats, flux_series, cusum_window, background_end, sigma)
+            onset_stats = onset_determination(background_stats, flux_series, cusum_window, background_end, sigma, experimental_k=experimental_k)
         else:
             # If the unit is count rate (1/s), then employ Poisson-CUSUM without using z-standardized intensity
             onset_stats = onset_determination_cr(background_stats, flux_series, cusum_window, background_end, sigma)
@@ -612,7 +623,7 @@ class Onset(Event):
 
             # These are for bughunting
             if diagnostics:
-                ax.step(time, onset_stats[-3], color="darkgreen", label=r"$I_{z-score}$")
+                #ax.step(time, onset_stats[-3], color="darkgreen", label=r"$I_{z-score}$")
                 ax.step(time, onset_stats[-2], color="maroon", label="CUSUM")
                 ax.axhline(y=onset_stats[2], ls="--", color='k', label='k')
                 ax.axhline(y=onset_stats[3], ls="-.", color='k', label='h')
@@ -706,9 +717,100 @@ class Onset(Event):
                         plt.savefig(f"{savepath}{os.sep}{self.spacecraft}{self.sensor}_{self.species}_{channels[:]}_onset.png", transparent=False,
                                 facecolor='white', bbox_inches='tight')
 
+            # Run additional diagnostic tools -> Add two subplots displaying the z-standardized intensity
+            # time series (with k) and a heatmap displaying k as a function of bg mu and sigma.
+            if diagnostics:
+
+                # Create gridspec to align new plots
+                gc = fig.add_gridspec(nrows=2, ncols=2, hspace=0.02)
+
+                # Add new axes to the bottom row of the figure
+                z_ax = fig.add_subplot(gc[1,0])
+                k_ax = fig.add_subplot(gc[1,1])
+
+                # Plotting (k_contour returns the colorbar if axes are readily provided)
+                self.z_score_plot(background=background_range, n_sigma=sigma, ax=z_ax, xlim=xlim)
+                k_cb = background_range.k_contour(n_sigma=sigma, fig=fig, ax=k_ax)
+
+                # Moving z-score plot down
+                z_pos = z_ax.get_position()
+                new_z_pos = [z_pos.x0, z_pos.y0 - 0.55, z_pos.width, z_pos.height]
+                z_ax.set_position(new_z_pos)
+
+                # Moving the colormap and colorbar down
+                k_pos = k_ax.get_position()
+                new_k_pos = [k_pos.x0, k_pos.y0 - 0.8, k_pos.width, k_pos.height+0.2]
+                k_ax.set_position(new_k_pos)
+                bar_pos = k_cb.ax.get_position()
+                new_bar_pos = [bar_pos.x0, bar_pos.y0 - 0.82, bar_pos.width+0.2, bar_pos.height+0.21]
+                k_cb.ax.set_position(new_bar_pos)
+
             plt.show()
 
         return onset_stats, flux_series
+
+
+    def z_score_plot(self, background, n_sigma:int, ax:plt.Axes=None, yscale:str="log",
+                     xlim:tuple|list=None, ylim:tuple|list=None) -> plt.Figure:
+        """
+        Plots the z-score of the event, i.e., the z-standardized intensity.
+        Displays the mean, standard deviation and the k-parameter calculated from background params.
+
+        Parameters:
+        -----------
+        background : {BootstrapWindow}
+        n_sigma : {int}
+        ax : {plt.Axes}
+        y_scale : {str}
+        xlim : {tuple|list}
+        ylim : {tuple|list}
+
+        Returns:
+        -----------
+        fig : {plt.Figure}
+        ax : {plt.Axes}
+        """
+
+        # Uses the latest flux_series (bound to the object) and the chosen background
+        # params (mu,sigma) to calculate z-standardized intensity
+        mu = background.background_selection.mean()
+        sigma = background.background_selection.std()
+        z_series = z_score(series=self.flux_series, mu=mu, sigma=sigma)
+
+        # Initialize the figure
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(13,7))
+            ax_provided = False
+        else:
+            ax_provided = True
+
+        ax.set_yscale(yscale)
+
+        if isinstance(xlim, (list,tuple)):
+            ax.set_xlim(pd.to_datetime(xlim[0]), pd.to_datetime(xlim[1]))
+
+        if isinstance(ylim, (list,tuple)):
+            ax.set_ylim(ylim[0], ylim[1])
+
+        ax.step(z_series.index, z_series.values, color="green", where="mid", zorder=1)
+        ax.axhline(y=0, c="red", ls="--", label=r"$\mu$=0")
+        ax.axhline(y=1, c="red", ls=":", label=r"$\sigma$=1")
+
+        # Display the background on the plot
+        ax.axvspan(xmin=background.start, xmax=background.end, color="#e41a1c", alpha=0.10)
+
+        # Calculate k and mark it as a horizontal dashed line
+        current_k = calc_k(mu=mu, sigma=sigma, n_sigma=n_sigma)
+        ax.axhline(y=current_k, c='k', ls="--", zorder=2, label=f"k={current_k:.2f}")
+
+        ax.set_title("z-standardized intensity")
+
+        ax.legend()
+
+        if ax_provided:
+            return None
+
+        return (fig, ax)
 
 
     def plot_all_channels(self, viewing:str=None, resample:str=None, omit:list=None, cmap:str="twilight_shifted", xlim=None, title:str=None,
@@ -843,7 +945,8 @@ class Onset(Event):
 
 
     def statistic_onset(self, channels, Window, viewing:str, resample:str=None, erase:tuple=None, sample_size:float=None, cusum_minutes:int=None, 
-                        small_windows:str=None, offset_origins:bool=True, detrend=True, sigma_multiplier=2):
+                        small_windows:str=None, offset_origins:bool=True, detrend=True, sigma_multiplier=2,
+                        experimental_k=False):
         """
         This method looks at a particular averaging window with length <windowlen>, and draws from it
         points <n_bstraps> times. From these <n_bstraps> different distributions of measurements, it 
@@ -882,7 +985,7 @@ class Onset(Event):
                     apply to 1min data.
         sigma_multiplier : {int, float} default 2
                     The multiplier for the $\\mu_{d}$ variable in the CUSUM method.
-
+        experimental_k : {bool} Enables experimental k-parameter calculation -> normalizes k to (sigma*sigma_multiplier)
         Returns:
         -----------
         mean_onset: a timestamp indicating the mean of all onset times found
@@ -1069,7 +1172,8 @@ class Onset(Event):
                     cusum_window = cusum_windows[j%len(cusum_windows)]
 
                     # Find an onset and save it into onset_series. Use the chosen series from the list of series
-                    onset_i = onset_determination([mu, sigma], chosen_series, cusum_window, big_window_end, sigma_multiplier=sigma_multiplier)
+                    onset_i = onset_determination([mu, sigma], chosen_series, cusum_window, big_window_end, sigma_multiplier=sigma_multiplier,
+                                                  experimental_k=experimental_k)
                     onset_list.append(onset_i[-1])
 
 
@@ -2497,7 +2601,7 @@ class Onset(Event):
     def automatic_onset_stats(self, channels, background, viewing, erase, cusum_minutes:int=None, sample_size:float=0.5, 
                               small_windows=None, stop=None, weights="inverse_variance", limit_computation_time=True, sigma=2, 
                               detrend:bool=True, prints:bool=False, custom_data_dt:str=None,
-                              limit_averaging:str=None, fail_avg_stop:int=None):
+                              limit_averaging:str=None, fail_avg_stop:int=None, experimental_k=False):
         """
         Automates the uncertainty estimation for a single channel provided by Poisson-CUSUM-bootstrap hybrid method
 
@@ -2542,7 +2646,8 @@ class Onset(Event):
         fail_avg_stop : {int}, optional
                     If absolutely no onset is found in the native time resolution, how far should the method average the data to
                     try and find onset times? Default is up to 5 minutes.
-
+        experimental_k : {bool}, optional Default == False
+                    Enables experimental k-parameter calculation -> normalizes to (sigma*sigma_multiplier).
         Returns:
         ----------
         stats_arr : {OnsetStatsArray}
@@ -2650,7 +2755,7 @@ class Onset(Event):
         # Run statistic_onset() once to get the confidence intervals for the bare not resampled, or 1-minute, data
         first_run_stats, _ = self.statistic_onset(channels=channels, Window=background, viewing=viewing, 
                                             sample_size=sample_size, resample=first_resample, erase=erase, small_windows=small_windows,
-                                            cusum_minutes=cusum_minutes, detrend=False, sigma_multiplier=sigma)
+                                            cusum_minutes=cusum_minutes, detrend=False, sigma_multiplier=sigma, experimental_k=experimental_k)
 
         # For the first iteration initialize the OnsetStatsArray object, which can plot the integration time plot
         # This step has to be done after running statistic_onset() the first time, because otherwise "self.bootstrap_onset_statistics"
@@ -2733,7 +2838,7 @@ class Onset(Event):
 
                 next_run_stats, _ = self.statistic_onset(channels=channels, Window=background, viewing=viewing, 
                                             sample_size=sample_size, resample=f"{i}min", erase=erase, small_windows=small_windows,
-                                            cusum_minutes=cusum_minutes, sigma_multiplier=sigma, detrend=True)
+                                            cusum_minutes=cusum_minutes, sigma_multiplier=sigma, detrend=True, experimental_k=experimental_k)
                 next_run_uncertainty = next_run_stats["1-sigma_confidence_interval"][1] - next_run_stats["1-sigma_confidence_interval"][0]
                 next_run_uncertainty_mins = (next_run_stats["1-sigma_confidence_interval"][1] - next_run_stats["1-sigma_confidence_interval"][0]).seconds // 60
 
@@ -2807,7 +2912,7 @@ class Onset(Event):
 
             _, _ = self.statistic_onset(channels=channels, Window=background, viewing=viewing, 
                                             sample_size=sample_size, resample=resample, erase=erase, small_windows=small_windows,
-                                            cusum_minutes=cusum_minutes, sigma_multiplier=sigma, detrend=detrend)
+                                            cusum_minutes=cusum_minutes, sigma_multiplier=sigma, detrend=detrend, experimental_k=experimental_k)
 
             stats_arr.add(self)
 
@@ -2820,7 +2925,8 @@ class Onset(Event):
 
     def onset_statistics_per_channel(self, background, viewing, channels=None, erase:list=None, cusum_minutes:int=30, sample_size:float=0.50, 
                                      weights:str="inverse_variance", detrend=True, limit_computation_time=True, average_to=None, print_output=False, 
-                                     limit_averaging=None, fail_avg_stop:int=None, random_seed:int=None, sigma:int=2):
+                                     limit_averaging=None, fail_avg_stop:int=None, random_seed:int=None, sigma:int=2,
+                                     experimental_k:bool=False):
         """
         Wrapper method for automatic_onset_stats(), that completes full onset and uncertainty analysis for a single channel.
         Does a complete onset uncertainty analysis on, by default all, the energy channels for the given instrument.
@@ -2865,7 +2971,8 @@ class Onset(Event):
                     try and find onset times? Default is up to 5 minutes.
         random_seed : {int}, optional
                     Passes down a seed for the random generator that picks the samples from the background window.
-
+        experimental_k : {bool}, optional
+                    Enables the experimental k-parameter calculation -> normalizes to sigma*sigma_multplier
         Returns:
         ----------
         uncertainty_stats_by_channel : {np.ndarray(OnsetStatsArray)}
@@ -2925,7 +3032,7 @@ class Onset(Event):
                                                                 stop=average_to, cusum_minutes=cusum_minutes, sample_size=sample_size, 
                                                                 weights=weights, detrend=detrend, limit_computation_time=limit_computation_time,
                                                                 prints=print_output, limit_averaging=limit_averaging, fail_avg_stop=fail_avg_stop,
-                                                                custom_data_dt=custom_data_dt)
+                                                                custom_data_dt=custom_data_dt, experimental_k=experimental_k)
 
             # Add statistics to the array that holds statistics related to each individual channel
             uncertainty_stats_by_channel = np.append(uncertainty_stats_by_channel, onset_uncertainty_stats)
@@ -3311,6 +3418,8 @@ class BootstrapWindow:
 
         self.init_state = self.save_state(return_state=True)
 
+        self.background_selection = None
+
     def __repr__(self):
         return self.attrs()
 
@@ -3341,6 +3450,149 @@ class BootstrapWindow:
         blabel.patch.set_boxstyle("round, pad=0., rounding_size=0.2")
         blabel.patch.set_linewidth(2.0)
         ax.add_artist(blabel)
+
+    def poisson_comparison_figure(self, num_of_bins:int=None, seed:int=1) -> plt.Figure:
+        """
+        Produces a histogram displaying the observed intensity in the background
+        and overlapping corresponding Poisson-distributed histogram.
+        Allows for visual inspection of how closely the distribution of background
+        intensities resemble a poisson-distributed selection.
+
+        Parameters:
+        -----------
+        num_of_bins : {int} Number of bins for the histogram. Optional.
+        seed : {int} The seeding number for the random number generator.
+        """
+
+        # The selection of the VALUES from the background. 
+        # type(background_selection) == pd.Series
+        bg_sel = self.background_selection.values
+
+        # Init the random number generator and produce 
+        rng = np.random.default_rng(seed=seed)
+        pois = rng.poisson(lam=bg_sel.mean(), size=len(bg_sel))
+
+        # Try to find a reasonable number of bins if not given a definite amount
+        if num_of_bins is None:
+            num_of_bins = (max(bg_sel.astype(int)) - min(bg_sel.astype(int)))//4
+        bins = np.linspace(min(bg_sel.astype(int)),max(bg_sel.astype(int)), num_of_bins)
+
+        # Init the figure
+        fig = plt.figure(layout="constrained")
+        ax = fig.add_subplot()
+
+        # Draw the two histograms: first for observed and the second for theoretical
+        # values
+        obs = ax.hist(bg_sel.astype(int), bins=bins, color="tab:blue", label="observed")
+        exp = ax.hist(pois, bins=bins, color="darkorange", alpha=0.6, label="theoretical")
+
+        ax.set_title("Background intensity distribution:\nobserved + theoretical")
+        ax.legend()
+
+        plt.close()
+
+        return fig
+
+    def fast_poisson_test(self, tolerance=3e-1) -> bool:
+        """
+        Does a preliminary fast poisson test: checks the relation between the mean and variance of
+        the background selection. For a Poisson distribution, the mean and the variance are equal.
+
+        parameters:
+        ------------
+        tolerance : {float} The relative tolerance accepted 
+        """
+
+        bg_sel = self.background_selection
+
+        mean = bg_sel.mean()
+        var = bg_sel.var()
+
+        # Catch discrepancy here and issue a warning
+        if not np.isclose(mean, var, rtol=tolerance):
+            print(f"Fast Poisson test warning: ratio of background var/mu = {(var/mean):.2f}.")
+            print("Ratio > 1 may lead to late detection of the event.")
+            return False
+
+        return True
+
+    def k_contour(self, n_sigma:int, cmap:str=None, fig:plt.Figure=None, ax:plt.Axes=None):
+        """
+        Draws a k-contour plot as a function of background 
+
+        Parameters:
+        -----------
+        n_sigma : {int}
+        cmap : {str} Name of the colormap
+        fig : {plt.Figure}
+        ax : {plt.Axes}
+        """
+        DEFAULT_CMAP_NAME = "seismic"
+
+        mu = self.background_selection.mean()
+        sigma = self.background_selection.std()
+
+        # Initialize axis variables (mu & sigma)
+        mus = np.logspace(-2, 3, num=500)
+        stds = np.logspace(-2, 3, num=500)
+
+        # The meshgrid to use in plotting
+        xx, yy = np.meshgrid(mus, stds)
+
+        ks = calc_k(mu=xx, sigma=yy, n_sigma=n_sigma)
+        user_k = calc_k(mu=mu, sigma=sigma, n_sigma=n_sigma)
+
+        if cmap is None:
+            cmap = DEFAULT_CMAP_NAME
+
+        colormap = plt.get_cmap(cmap, 81)
+
+        # Initialize the figure (maybe)
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(12,10))
+            ax_provided = False
+        else:
+            ax_provided = True
+
+        ax.set_title(fr"k as a function of background $\mu$ and $\sigma$ (n={n_sigma})", fontsize=26)
+
+        ax.set_yscale("log")
+        ax.set_xscale("log")
+        
+        #ax.yaxis.set_ticks(which="major", width=2, length=6, labelsize=22)
+        #ax.xaxis.set_ticks(which="major", width=2, length=6, labelsize=22)
+
+        # Plotting
+        ks_lognorm = cl.LogNorm(vmin=1e-1, vmax=3.3e1) # vmax=ks.max()
+        kesh = ax.pcolormesh(mus, stds, ks, shading="nearest", rasterized=True, cmap=colormap,
+                            norm = ks_lognorm)
+
+        # The colorbar for k values
+        cb = fig.colorbar(kesh, ax=ax)
+
+        cb.ax.axhline(user_k, color="orange", lw=2)
+
+        # Lines for mu=sigma and mu=sigma^2
+        line = np.logspace(-2, 3, 10)
+        ax.plot(line, line, ls="--", color="black", zorder=3, label=r"$\mu = \sigma$")
+        ax.plot(mus, stds**2, lw=1.0, color="black", zorder=4, label=r"$\mu = \sigma^2$")
+
+        # Plotting user mu and sigma
+        ax.scatter(mu, sigma, s=125, color='k')
+        ax.scatter(mu, sigma, s=85, color="orange", label=fr"$\mu={mu:.2f}$"+"\n"+fr"$\sigma={sigma:.2f}$")
+        
+        ax.set_ylabel(r"$\sigma$", fontsize=24)
+        ax.set_xlabel(r"$\mu$", fontsize=24)
+
+        ax.set_ylim([stds.min(), stds.max()])
+        ax.set_xlim([mus.min(), mus.max()])
+        
+        ax.legend(loc=2)
+
+        if ax_provided:
+            return cb
+
+        return (ax, fig)
 
     def print_max_recommended_reso(self):
         f"""
@@ -3747,9 +3999,6 @@ class OnsetStatsArray:
         most_likely_onset = self.archive[integration_time_index]["most_likely_onset"]
         onsets = self.archive[integration_time_index]["unique_onsets"]
 
-        # Gets the date of the event
-        figdate = get_figdate(self.archive[0]["onset_list"])
-
         # Create a colormap for different shades of red for the onsets. Create the map with the amount of onsets+2, so that
         # the first and the final color are left unused. They are basically white and a very very dark red.
         cmap = plt.get_cmap("Reds", len(onsets)+2)
@@ -3771,6 +4020,9 @@ class OnsetStatsArray:
 
         # This is what we draw and check y-axis limits against to
         flux_in_plot = flux_series.loc[(flux_series.index > xlim[0]) & (flux_series.index < xlim[1])]
+
+        # Gets the date of the event
+        figdate = get_figdate(flux_in_plot.index)
 
         # y-axis: 
         ylim = set_fig_ylimits(ax=ax, ylim=None, flux_series=flux_in_plot)
@@ -3844,8 +4096,6 @@ class OnsetStatsArray:
         confidence_intervals1 = self.archive[integration_time_index]["1-sigma_confidence_interval"]
         confidence_intervals2 = self.archive[integration_time_index]["2-sigma_confidence_interval"]
 
-        figdate = onset_mean.date().strftime("%Y-%m-%d")
-
         # This is just for plotting the time series with the chosen resolution
         flux_series = self.list_of_series[integration_time_index]
 
@@ -3885,6 +4135,10 @@ class OnsetStatsArray:
         # y-axis: 
         flux_in_plot = flux_series.loc[(flux_series.index > xlim[0]) & (flux_series.index < xlim[1])]
         ylim = set_fig_ylimits(ax=ax, ylim=None, flux_series=flux_in_plot)
+
+        # Date of the event
+        #figdate = onset_mean.date().strftime("%Y-%m-%d")
+        figdate = get_figdate(dt_array=flux_in_plot.index)
 
         # If the lower y-boundary is some ridiculously small number, adjust the y-axis a little
         if np.log10(ylim[1])-np.log10(ylim[0]) > 10:
@@ -4832,7 +5086,8 @@ def erase_glitches(series, glitch_threshold, time_barr):
 
 # ============================================================================
 
-def onset_determination(ma_sigma, flux_series, cusum_window, avg_end, sigma_multiplier : int = 2) -> list :
+def onset_determination(ma_sigma, flux_series, cusum_window, avg_end, sigma_multiplier : int = 2,
+                        experimental_k=False) -> list :
     """
     Calculates the CUSUM function to find an onset time from the given time series data.
 
@@ -4848,10 +5103,26 @@ def onset_determination(ma_sigma, flux_series, cusum_window, avg_end, sigma_mult
 
     sigma_multiplier : float, int
 
+    experimental_k : {bool} Enables the calculation of the k parameter such that the normalization is
+                            done by (sigma_multiplier*sigma) instead of sigma.
+
     Returns:
     --------
     list(ma, md, k_round, h, norm_channel, cusum, onset_time)
     """
+
+    def experimental_k_param(mu:float, sigma:float, sigma_multiplier:float) -> float:
+
+        md = mu + (sigma_multiplier*sigma)
+
+        nominator = md-mu
+        denominator = np.log(md) - np.log(mu)
+
+        try:
+            k = nominator/(denominator*sigma*sigma_multiplier)
+        except ValueError:
+            k = 1 if mu > 0 else 0
+        return k
 
     # assert date and the starting index of the averaging process
     date = flux_series.index
@@ -4864,25 +5135,31 @@ def onset_determination(ma_sigma, flux_series, cusum_window, avg_end, sigma_mult
 
     ma = ma_sigma[0]
     sigma = ma_sigma[1]
-
     md = ma + sigma_multiplier*sigma
 
-    # k may get really big if sigma is large in comparison to mean
-    try:
-        k = (md-ma)/(np.log(md)-np.log(ma))
+    # The standard way of calculating k
+    if not experimental_k:
 
-        # If ma == 0, then std == 0. Hence CUSUM should not be restricted at all -> k_round = 0
-        # Otherwise k_round should be 1
-        if not np.isnan(k):
-            k_round = round(k/sigma) if k/sigma > 1 else k/sigma
-        else:
+        # k may get really big if sigma is large in comparison to mean
+        try:
+            k = (md-ma)/(np.log(md)-np.log(ma))
+
+            # If ma == 0, then std == 0. Hence CUSUM should not be restricted at all -> k_round = 0
+            # Otherwise k_round should be 1
+            if not np.isnan(k):
+                k_round = round(k/sigma) if k/sigma > 1 else k/sigma
+            else:
+                k_round = 1 if ma > 0 else 0
+
+        except (ValueError, OverflowError) as error:
+            # the first ValueError I encountered was due to ma=md=2.0 -> k = "0/0"
+            # OverflowError is due to k = inf
+            # print(error)
             k_round = 1 if ma > 0 else 0
 
-    except (ValueError, OverflowError) as error:
-        # the first ValueError I encountered was due to ma=md=2.0 -> k = "0/0"
-        # OverflowError is due to k = inf
-        # print(error)
-        k_round = 1 if ma > 0 else 0
+    # the experimental way of calculating k
+    else:
+        k_round = experimental_k_param(mu=ma, sigma=sigma, sigma_multiplier=sigma_multiplier)
 
     # choose h, the variable dictating the "hastiness" of onset alert
     h = 2 if k_round>1 else 1
@@ -5254,6 +5531,23 @@ def calculate_cusum_window(time_reso, window_minutes:int=30) -> int:
     
     return int(cusum_window)
 
+
+def calc_k(mu, sigma, n_sigma):
+
+    md = mu + (n_sigma*sigma)
+
+    nominator = md-mu
+    denominator = np.log(md) - np.log(mu)
+
+    return nominator/(denominator*sigma)
+
+
+def z_score(series, mu, sigma):
+    """
+    Standardizes the given series such that its mean is 0 and standard deviation is 1.
+    """
+    standard_values = (series.values - mu) / sigma
+    return pd.Series(standard_values, index=series.index)
 
 
 def set_fig_ylimits(ax:plt.Axes, ylim:list=None, flux_series:pd.Series=None):
