@@ -163,3 +163,6 @@ Temporary Items
 
 # Local data files shouldn't be tracked:
 examples/data/*
+
+# Personal development directory
+development/
