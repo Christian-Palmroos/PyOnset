@@ -61,8 +61,8 @@ class BootstrapWindow:
         else:
             return self.attrs_dict[key]
 
-    def apply_background_selection(self, flux_series: pd.Series):
-        self.background_selection = flux_series.loc[(flux_series.index >= self.background) & (flux_series.index < self.end)]
+    def apply_background_selection(self, flux_series:pd.Series):
+        self.background_selection = flux_series.loc[(flux_series.index >= self.start) & (flux_series.index < self.end)]
         self.set_background_params()
 
     def set_background_params(self):

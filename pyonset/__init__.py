@@ -608,8 +608,8 @@ class Onset(Event):
 
             # These are for bughunting
             if diagnostics:
-                #ax.step(time, onset_stats[-3], color="darkgreen", label=r"$I_{z-score}$")
-                ax.step(time, onset_stats[-2], color="maroon", label="CUSUM")
+                # ax.step(time, onset_stats[-3], color="darkgreen", label=r"$I_{z-score}$")
+                # ax.step(time, onset_stats[-2], color="maroon", label="CUSUM")
                 ax.axhline(y=onset_stats[2], ls="--", color='k', label='k')
                 ax.axhline(y=onset_stats[3], ls="-.", color='k', label='h')
 
@@ -734,6 +734,13 @@ class Onset(Event):
 
         return onset_stats, flux_series
 
+
+    def cusum_plot(self, background:BootstrapWindow, ax:plt.Axes, xlim:tuple|list=None) -> plt.Figure:
+        """
+        Plots the CUSUM function.
+        """
+
+        pass
 
     def z_score_plot(self, background, n_sigma:int, ax:plt.Axes=None, yscale:str="log",
                      xlim:tuple|list=None, ylim:tuple|list=None) -> plt.Figure:
