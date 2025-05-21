@@ -53,11 +53,11 @@ from seppy.tools import Event
 from .bootstrapwindow import BootstrapWindow, subwindows
 from .onsetstatsarray import OnsetStatsArray
 
-from .datetime_utilities import datetime_to_sec, datetime_mean, datetime_nanmedian, detrend_onsets, \
+from .datetime_utilities import datetime_to_sec, datetime_nanmedian, detrend_onsets, \
                                 get_time_reso, calculate_cusum_window, find_biggest_nonzero_unit, \
                                 get_figdate, check_confidence_intervals
 
-from .calc_utilities import z_score, k_parameter
+from .calc_utilities import z_score, k_parameter, experimental_k_param
 from .plot_utilities import set_fig_ylimits, set_standard_ticks, set_legend, \
                             TITLE_FONTSIZE, STANDARD_FIGSIZE, VDA_FIGSIZE, AXLABEL_FONTSIZE, \
                             TICK_LABELSIZE, TXTBOX_SIZE, LEGEND_SIZE
@@ -562,7 +562,7 @@ class Onset(Event):
         if diagnostics:
             print(f"Cusum_window, {cusum_minutes} minutes = {cusum_window} datapoints")
             print(f"onset time: {onset_stats[-1]}")
-            print(f"mu and sigma of background intensity: \n{np.round(background_stats[0],2)}, {np.round(background_stats[1],2)}")
+            print(f"mu and sigma of background intensity: \n{background_stats[0]:.3e}, {background_stats[0]:.3e}")
 
         # --Only plotting related code from this line onward ->
 
@@ -610,8 +610,9 @@ class Onset(Event):
             if diagnostics:
                 # ax.step(time, onset_stats[-3], color="darkgreen", label=r"$I_{z-score}$")
                 # ax.step(time, onset_stats[-2], color="maroon", label="CUSUM")
-                ax.axhline(y=onset_stats[2], ls="--", color='k', label='k')
-                ax.axhline(y=onset_stats[3], ls="-.", color='k', label='h')
+                #ax.axhline(y=onset_stats[2], ls="--", color='k', label='k')
+                #ax.axhline(y=onset_stats[3], ls="-.", color='k', label='h')
+                pass
 
             # Onset time
             if onset_found:
@@ -707,27 +708,49 @@ class Onset(Event):
             if diagnostics:
 
                 # Create gridspec to align new plots
-                gc = fig.add_gridspec(nrows=2, ncols=2, hspace=0.02)
+                gc = fig.add_gridspec(nrows=3, ncols=2, hspace=0.19)
 
                 # Add new axes to the bottom row of the figure
                 z_ax = fig.add_subplot(gc[1,0])
+                c_ax = fig.add_subplot(gc[2,0])
                 k_ax = fig.add_subplot(gc[1,1])
 
                 # Plotting (k_contour returns the colorbar if axes are readily provided)
                 self.z_score_plot(background=background_range, n_sigma=sigma, ax=z_ax, xlim=xlim)
-                k_cb = background_range.k_contour(n_sigma=sigma, fig=fig, ax=k_ax)
 
-                # Moving z-score plot down
+                # Plotting the CUSUM function. onset_stats[5] == cusum, onset_stats[3] == h
+                self.cusum_plot(cusum=onset_stats[5], h=onset_stats[3], background=background_range, ax=c_ax,
+                                xlim=xlim)
+
+                # Plotting the k-contour
+                k_model = None
+                if experimental_k:
+                    k_model = experimental_k_param
+                k_cb = background_range.k_contour(n_sigma=sigma, fig=fig, ax=k_ax, k_model=k_model)
+
+                offset_down_z = 0.71
+                zc_height_increment = 0.03
+                # Moving z-score plot down and removing ticklabels
                 z_pos = z_ax.get_position()
-                new_z_pos = [z_pos.x0, z_pos.y0 - 0.55, z_pos.width, z_pos.height]
+                new_z_pos = [z_pos.x0, z_pos.y0 - offset_down_z, z_pos.width, z_pos.height+zc_height_increment]
                 z_ax.set_position(new_z_pos)
+                z_ax.xaxis.set_tick_params(which="both", labelbottom=False, direction="in")
 
+                offset_down_c = 0.75
+                # Moving the cusum plot down
+                c_pos = c_ax.get_position()
+                new_c_pos = [c_pos.x0, c_pos.y0 - offset_down_c, c_pos.width, c_pos.height+zc_height_increment]
+                c_ax.set_position(new_c_pos)
+                c_ax.xaxis.set_major_formatter(utc_dt_format1)
+
+                offset_down_k = 1.03
+                k_height_increment = 0.35
                 # Moving the colormap and colorbar down
                 k_pos = k_ax.get_position()
-                new_k_pos = [k_pos.x0, k_pos.y0 - 0.8, k_pos.width, k_pos.height+0.2]
+                new_k_pos = [k_pos.x0, k_pos.y0 - offset_down_k, k_pos.width, k_pos.height+k_height_increment]
                 k_ax.set_position(new_k_pos)
                 bar_pos = k_cb.ax.get_position()
-                new_bar_pos = [bar_pos.x0, bar_pos.y0 - 0.82, bar_pos.width+0.2, bar_pos.height+0.21]
+                new_bar_pos = [bar_pos.x0, bar_pos.y0 - offset_down_k, bar_pos.width+0.45, bar_pos.height+0.35]
                 k_cb.ax.set_position(new_bar_pos)
 
             plt.show()
@@ -735,15 +758,55 @@ class Onset(Event):
         return onset_stats, flux_series
 
 
-    def cusum_plot(self, background:BootstrapWindow, ax:plt.Axes, xlim:tuple|list=None) -> plt.Figure:
+    def cusum_plot(self, cusum:np.ndarray, h:int, background:BootstrapWindow, ax:plt.Axes, xlim:tuple|list=None,
+                   yscale:str="log") -> plt.Figure:
         """
         Plots the CUSUM function.
+
+        Parameters:
+        -----------
+        cusum : {np.ndarray} The CUSUM function.
+        h : {int} The hastiness threshold of CUSUM.
+        background : {BootstrapWindow}
+        ax : {plt.Axes}
+        xlim : {tuple|list}
+        yscale : {str}
+
+        Returns:
+        ------------
+        fig : {plt.Figure}
+        ax : {plt.Axes}
         """
 
-        pass
+        # Initialize the figure
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(13,7))
+            ax_provided = False
+        else:
+            ax_provided = True
+        
+        ax.set_yscale(yscale)
+        ax.set_ylim(5e-1, 1.2*np.max(cusum))
+
+        if isinstance(xlim, (list,tuple)):
+            ax.set_xlim(pd.to_datetime(xlim[0]), pd.to_datetime(xlim[1]))
+
+        ax.step(self.flux_series.index, cusum, color="maroon", label="CUSUM")
+        ax.axhline(y=h, ls="--", color='k', label='h')
+
+        # Display the background on the plot
+        ax.axvspan(xmin=background.start, xmax=background.end, color="#e41a1c", alpha=0.10)
+
+        ax.set_title("CUSUM")
+        ax.legend()
+
+        if ax_provided:
+            return None
+    
+        return (fig,ax)
 
     def z_score_plot(self, background, n_sigma:int, ax:plt.Axes=None, yscale:str="log",
-                     xlim:tuple|list=None, ylim:tuple|list=None) -> plt.Figure:
+                     xlim:tuple|list=None, ylim:tuple|list=None, k_model=None) -> plt.Figure:
         """
         Plots the z-score of the event, i.e., the z-standardized intensity.
         Displays the mean, standard deviation and the k-parameter calculated from background params.
@@ -756,6 +819,7 @@ class Onset(Event):
         y_scale : {str}
         xlim : {tuple|list}
         ylim : {tuple|list}
+        k_model : {Function} Model that calculates k.
 
         Returns:
         -----------
@@ -792,11 +856,12 @@ class Onset(Event):
         ax.axvspan(xmin=background.start, xmax=background.end, color="#e41a1c", alpha=0.10)
 
         # Calculate k and mark it as a horizontal dashed line
-        current_k = k_parameter(mu=mu, sigma=sigma, n_sigma=n_sigma)
+        if k_model is None:
+            k_model = k_parameter
+        current_k = k_model(mu=mu, sigma=sigma, sigma_multiplier=n_sigma)
         ax.axhline(y=current_k, c='k', ls="--", zorder=2, label=f"k={current_k:.2f}")
 
         ax.set_title("z-standardized intensity")
-
         ax.legend()
 
         if ax_provided:
@@ -3824,19 +3889,6 @@ def onset_determination(ma_sigma, flux_series, cusum_window, avg_end, sigma_mult
     --------
     list(ma, md, k_round, h, norm_channel, cusum, onset_time)
     """
-
-    def experimental_k_param(mu:float, sigma:float, sigma_multiplier:float) -> float:
-
-        md = mu + (sigma_multiplier*sigma)
-
-        nominator = md-mu
-        denominator = np.log(md) - np.log(mu)
-
-        try:
-            k = nominator/(denominator*sigma*sigma_multiplier)
-        except ValueError:
-            k = 1 if mu > 0 else 0
-        return k
 
     # assert date and the starting index of the averaging process
     date = flux_series.index

@@ -146,13 +146,14 @@ class BootstrapWindow:
 
         # Catch discrepancy here and issue a warning
         if not np.isclose(mean, var, rtol=tolerance):
-            print(f"Fast Poisson test warning: ratio of background var/mu = {(var/mean):.2f}.")
+            print(f"Fast Poisson test warning: ratio of background var/mu = {(var/mean):.3e}.")
             print("Ratio > 1 may lead to late detection of the event.")
             return False
 
         return True
 
-    def k_contour(self, n_sigma:int, cmap:str=None, fig:plt.Figure=None, ax:plt.Axes=None):
+    def k_contour(self, n_sigma:int, cmap:str=None, fig:plt.Figure=None, ax:plt.Axes=None,
+                  k_model=None):
         """
         Draws a k-contour plot as a function of background 
 
@@ -162,6 +163,7 @@ class BootstrapWindow:
         cmap : {str} Name of the colormap
         fig : {plt.Figure}
         ax : {plt.Axes}
+        k_model : {Function} The model that calculates k.
         """
 
         def order_of_magnitude(num):
@@ -179,8 +181,11 @@ class BootstrapWindow:
         # The meshgrid to use in plotting
         xx, yy = np.meshgrid(mus, sigmas)
 
-        ks = k_parameter(mu=xx, sigma=yy, n_sigma=n_sigma)
-        user_k = k_parameter(mu=mu, sigma=sigma, n_sigma=n_sigma)
+        if k_model is None:
+            k_model = k_parameter
+
+        ks = k_model(mu=xx, sigma=yy, sigma_multiplier=n_sigma)
+        user_k = k_model(mu=mu, sigma=sigma, sigma_multiplier=n_sigma)
 
         if cmap is None:
             cmap = DEFAULT_KCONTOUR_CMAP
@@ -206,8 +211,9 @@ class BootstrapWindow:
 
         # The colorbar for k values
         cb = fig.colorbar(kesh, ax=ax)
+        cb.set_label('k', rotation=360, fontsize=22)
 
-        cb.ax.axhline(user_k, color="orange", lw=2)
+        cb.ax.axhline(user_k, color="darkorange", lw=2.5)
 
         # Lines for mu=sigma and mu=sigma^2
         ax.plot(mus, mus, ls="--", color="black", zorder=3, label=r"$\mu = \sigma$")
@@ -215,7 +221,8 @@ class BootstrapWindow:
 
         # Plotting user mu and sigma
         ax.scatter(mu, sigma, s=125, color='k')
-        ax.scatter(mu, sigma, s=85, color="orange", label=fr"$\mu={mu:.2f}$"+"\n"+fr"$\sigma={sigma:.2f}$")
+        ax.scatter(mu, sigma, s=85, color="orange",
+                   label=fr"$\mu={mu:.3e}$"+"\n"+fr"$\sigma={sigma:.3e}$"+"\n"+f"k={user_k:.2f}")
         
         ax.set_ylabel(r"$\sigma$", fontsize=24)
         ax.set_xlabel(r"$\mu$", fontsize=24)
