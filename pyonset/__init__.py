@@ -8,7 +8,7 @@ A library that holds the Onset class for PyOnset.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2025-05-20
+@Updated: 2025-06-02
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -355,7 +355,7 @@ class Onset(Event):
     def set_data_frequency(self, freq):
         """
         Tries to set a frequency for the data. Useful especially incase of custom data.
-        
+
         Parameters:
         -----------
         freq : {str}
@@ -521,6 +521,7 @@ class Onset(Event):
             # Attach the selected segment of flux_series to the BootstrapWindow.
             background_range.apply_background_selection(flux_series=flux_series)
 
+            # The results of this test is returned but not really used anywhere
             if poisson_test:
                 poisson_test_result = background_range.fast_poisson_test()
 
@@ -562,7 +563,7 @@ class Onset(Event):
         if diagnostics:
             print(f"Cusum_window, {cusum_minutes} minutes = {cusum_window} datapoints")
             print(f"onset time: {onset_stats[-1]}")
-            print(f"mu and sigma of background intensity: \n{background_stats[0]:.3e}, {background_stats[0]:.3e}")
+            print(f"mu and sigma of background intensity: \n{background_stats[0]:.3e}, {background_stats[1]:.3e}")
 
         # --Only plotting related code from this line onward ->
 
@@ -707,6 +708,10 @@ class Onset(Event):
             # time series (with k) and a heatmap displaying k as a function of bg mu and sigma.
             if diagnostics:
 
+                k_model = None
+                if experimental_k:
+                    k_model = experimental_k_param
+
                 # Create gridspec to align new plots
                 gc = fig.add_gridspec(nrows=3, ncols=2, hspace=0.19)
 
@@ -716,16 +721,13 @@ class Onset(Event):
                 k_ax = fig.add_subplot(gc[1,1])
 
                 # Plotting (k_contour returns the colorbar if axes are readily provided)
-                self.z_score_plot(background=background_range, n_sigma=sigma, ax=z_ax, xlim=xlim)
+                self.z_score_plot(background=background_range, n_sigma=sigma, ax=z_ax, xlim=xlim, k_model=k_model)
 
                 # Plotting the CUSUM function. onset_stats[5] == cusum, onset_stats[3] == h
                 self.cusum_plot(cusum=onset_stats[5], h=onset_stats[3], background=background_range, ax=c_ax,
                                 xlim=xlim)
 
                 # Plotting the k-contour
-                k_model = None
-                if experimental_k:
-                    k_model = experimental_k_param
                 k_cb = background_range.k_contour(n_sigma=sigma, fig=fig, ax=k_ax, k_model=k_model)
 
                 offset_down_z = 0.71
