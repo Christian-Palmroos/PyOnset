@@ -2826,7 +2826,7 @@ class Onset(Event):
         first_run_uncertainty = first_run_stats["1-sigma_confidence_interval"][1] - first_run_stats["1-sigma_confidence_interval"][0]
 
         if prints:
-            print(f"~68 % uncertainty for the self time with native data resolution: {first_run_uncertainty}")
+            print(f"~68 % uncertainty for the onset time with native data resolution: {first_run_uncertainty}")
 
         # Could be that the native resolution identifies no onset at all, in this case handle it
         if not isinstance(first_run_uncertainty, pd._libs.tslibs.nattype.NaTType):
