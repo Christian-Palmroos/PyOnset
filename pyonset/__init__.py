@@ -60,7 +60,7 @@ from .datetime_utilities import datetime_to_sec, datetime_nanmedian, detrend_ons
 from .calc_utilities import z_score, k_parameter, experimental_k_param
 from .plot_utilities import set_fig_ylimits, set_standard_ticks, set_legend, \
                             TITLE_FONTSIZE, STANDARD_FIGSIZE, VDA_FIGSIZE, AXLABEL_FONTSIZE, \
-                            TICK_LABELSIZE, TXTBOX_SIZE, LEGEND_SIZE
+                            TICK_LABELSIZE, TXTBOX_SIZE, LEGEND_SIZE, COLOR_SCHEME
 
 __author__ = "Christian Palmroos"
 __email__ = "chospa@utu.fi"
@@ -334,6 +334,53 @@ class Onset(Event):
             return "protons"
         if self.species in ["ion", 'i']:
             return "ions"
+
+    def _get_title(self, energy_str):
+        """
+        Generates the title string for an onset plot.
+        """
+        sc_abbreviations_dict = {
+            "sta" : "STEREO-A",
+            "stb" : "STEREO-B",
+            "solo" : "Solar Orbiter",
+            "soho" : "SOHO",
+            "wind" : "Wind",
+            "psp" : "Parker Solar Probe"
+        }
+
+        species_abbreviations_dict = {
+            'e' : "Electrons",
+            'p' : "Protons",
+            'H' : "Protons",
+            'i' : "Ions"
+        }
+        
+        spacecraft = self.spacecraft
+        sensor = self.sensor
+        viewing = self.viewing
+        species = self.species
+
+        # Correct spacecraft name
+        if not self.custom_data:
+            spacecraft = sc_abbreviations_dict[spacecraft]
+
+        # Correct species name
+        if not self.custom_data:
+            species = species_abbreviations_dict[species]
+
+        # Make sensor all-caps
+        sensor = sensor.upper()
+        
+        # Check that viewing is in correct format. Empty str for None
+        viewing = viewing if viewing is not None else ""
+
+        # Wind viewing format:
+        if spacecraft=="Wind":
+            if len(viewing)==1:
+                viewing = f"Sector {viewing}"
+
+        # Return the complete title str
+        return f"{spacecraft} / {sensor}$^{{\\mathrm{{{viewing}}}}}$\n{energy_str} {species}"
 
     def add_bootstrap_window(self, window):
         """
@@ -874,6 +921,140 @@ class Onset(Event):
             return None
 
         return (fig, ax)
+
+
+    def final_onset_plot(self, channel, resample:str=None, xlim:tuple|list=None, ylim:tuple|list=None,
+                    show_background:bool=True,
+                    onset:str="mode", title:str=None, legend_loc:str="out",
+                    savepath:str=None, save:bool=False, figname:str=None):
+        """
+        Produces the 'final' plot that showcases the intensity time series, the onset time and its 
+        confidence intervals and the background selection.
+
+        By default:
+            -plots the intensity in 1 min cadence, even for instruments with finer cadence.
+            -sets the horizontal boundaries to +3/-5 hours from the onset time.
+            -sets the vertical boundaries to 
+
+        Parameters:
+        ----------
+        channel : {int|str} The channel identifier.
+        resample : {str} Pandas-compatible time string to time-average the inetsnity time series.
+        xlim : {tuple|list} A pair of datetime strings to set the horizontal boundaries of the plot.
+        ylim : {tuple|list} A pair of floating point numbers to set the vertical boundaries of the plot.
+        show_background : {bool} A switch to draw the background selection on the plot.
+        onset : {str} A switch to choose either 'mode' or 'median' onset of the analysis as the onset to display.
+        title : {str} Custom title.
+        legend_loc : {str} Legend location, either 'in' or 'out'.
+        savepath : {str} A path to save the figure.
+        save : {bool} A switch to save the figure.
+        figname : {str} A custom name for the figure if saved.
+        """
+
+        FRST_CONF_START = 2
+        FRST_CONF_END = 3
+        SCND_CONF_START = 4
+        SCND_CONF_END = 5
+        VALID_ONSET_OPTIONS = ("mode", "median")
+        HM_FORMAT = DateFormatter("%H:%M")
+        HMINSEC_FORMAT = "%H:%M:%S"
+
+        if onset not in VALID_ONSET_OPTIONS:
+            raise ValueError(f"parameter onset=={onset} when valid options are {VALID_ONSET_OPTIONS}.")
+        onset_idx = 0 if onset=="mode" else 1 
+
+        # Choose the onset time (mode/median) and confidence intervals
+        onset_time = self.onset_statistics[channel][onset_idx]
+        conf_interval1_start, conf_interval1_end = self.onset_statistics[channel][FRST_CONF_START], self.onset_statistics[channel][FRST_CONF_END] 
+        conf_interval2_start, conf_interval2_end = self.onset_statistics[channel][SCND_CONF_START], self.onset_statistics[channel][SCND_CONF_END]
+
+        # Choose either custom data or standard to plot
+        if self.custom_data:
+            series, en_channel_string = self.data[channel], channel
+        # Standard (SEPpy) data:
+        else:
+            channel = [channel]
+            series, en_channel_string = self.choose_flux_series(channels=channel, viewing=self.viewing)
+
+        # Resample the data if requested
+        if isinstance(resample,str):
+            series = util.resample_df(series, resample)
+
+        # Resample data to 1 min even if not requested if fine cadence
+        if resample is None and self.spacecraft in FINE_CADENCE_SC:
+            series = util.resample_df(series, "1 min")
+        
+        # Creating the plot
+        fig, ax = plt.subplots(figsize=STANDARD_FIGSIZE)
+
+        # Set the x-axis settings
+        ax.xaxis_date()
+        ax.set_xlabel(f"Time ({onset_time.date()})", fontsize=AXLABEL_FONTSIZE)
+        ax.xaxis.set_major_formatter(HM_FORMAT)
+        if not isinstance(xlim, (tuple,list)):
+            xlim = (onset_time - pd.Timedelta(hours=5), onset_time + pd.Timedelta(hours=3))
+            ax.set_xlim(xlim)
+        else:
+            ax.set_xlim(pd.to_datetime(xlim[0]), pd.to_datetime(xlim[1]))
+
+        # The y-axis settings:
+        ax.set_yscale("log")
+        ax.set_ylabel(self.unit, fontsize=AXLABEL_FONTSIZE)
+        _ = set_fig_ylimits(ax=ax, flux_series=series, ylim=ylim)
+
+        # Intensity
+        ax.step(series.index, series.values, color="tab:blue",   where="mid")
+
+        # Onset time and confidence intervals:
+        ax.axvline(x=onset_time, color="red", zorder=5, label=f"onset time\n{onset_time.strftime(HMINSEC_FORMAT)}")
+        ax.axvspan(xmin=conf_interval1_start, xmax=conf_interval1_end, 
+                    color=COLOR_SCHEME["1-sigma"], zorder=2, alpha=.3,
+                    label=f"~68 % confidence\n{conf_interval1_start.strftime(HMINSEC_FORMAT)}-{conf_interval1_end.strftime(HMINSEC_FORMAT)}")
+        ax.axvspan(xmin=conf_interval2_start, xmax=conf_interval2_end, 
+                    color=COLOR_SCHEME["2-sigma"], zorder=1, alpha=.3,
+                    label=f"~95 % confidence\n{conf_interval2_start.strftime(HMINSEC_FORMAT)}-{conf_interval2_end.strftime(HMINSEC_FORMAT)}")
+
+        # Shade the background only if asked to and if it overlaps with the plot boundaries
+        if show_background:
+            self.background.draw_background(ax=ax)
+            if self.background.end < pd.to_datetime(xlim[0]):
+                # Getting the last patch that was created (background.axvspan) and setting its label to
+                # start with an underscore "_" makes it not appear on the legend
+                background_shading = ax.patches[-1]
+                background_shading.set_label("_Background")
+
+        # Ticmarks, title and legend
+        set_standard_ticks(ax=ax)
+
+        if title is None:
+            title =self._get_title(energy_str=en_channel_string)
+        ax.set_title(title, fontsize=TITLE_FONTSIZE)
+
+        set_legend(ax=ax, legend_loc=legend_loc, fontsize=LEGEND_SIZE)
+
+        # Saving the figure
+        if save:
+            # Custom savepath if provided
+            if savepath is None:
+                savepath = CURRENT_PATH
+
+            # Custom name if provided
+            if isinstance(figname,str):
+                fig.savefig(fname=f"{savepath}{os.sep}{figname}", facecolor="white", 
+                            transparent=False, bbox_inches="tight")
+            # Generate a name for the fig
+            else:
+                if self.spacecraft.lower() in ["bepicolombo", "bepi"]:
+                    plt.savefig(f"{savepath}{os.sep}{self.spacecraft}{self.sensor}_side{viewing}_{self.species}_{channel[0]}_onset.png", transparent=False,
+                            facecolor="white", bbox_inches="tight")
+                elif self.viewing is not None:
+                    plt.savefig(f"{savepath}{os.sep}{self.spacecraft}{self.sensor}_{self.viewing.lower()}_{self.species}_{channel[0]}_onset.png", transparent=False,
+                            facecolor="white", bbox_inches="tight")
+                else:
+                    plt.savefig(f"{savepath}{os.sep}{self.spacecraft}{self.sensor}_{self.species}_{channel[0]}_onset.png", transparent=False,
+                            facecolor="white", bbox_inches="tight")
+
+        plt.show()
 
 
     def plot_all_channels(self, viewing:str=None, resample:str=None, omit:list=None, cmap:str="twilight_shifted", xlim=None, title:str=None,
