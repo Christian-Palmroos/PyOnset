@@ -80,6 +80,7 @@ def set_legend(ax: plt.Axes, legend_loc: str, fontsize:int):
     elif legend_loc=="in":
         # loc=4 means that the legend handle is "lower right"
         legend_handle, legend_bbox = 4, (1.0, 0.01)
+        fontsize = fontsize - 2 # Having legend in makes everything bigger -> decrease font a bit
     else:
         raise ValueError(f"Argument legend_loc has to be either 'in' or 'out', not {legend_loc}")
 
