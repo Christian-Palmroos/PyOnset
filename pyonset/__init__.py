@@ -86,6 +86,10 @@ EPHIN_300_INVALID_ONWARDS = pd.to_datetime("2017-10-04 00:00:00")
 
 CUSUM_WINDOW_RESOLUTION_MULTIPLIERS = (4,8,16,32)
 
+# A fine cadence is less than 1 minute -> requires computation time
+FINE_CADENCE_SC = ("solo", "wind")
+
+
 # A new class to inherit everything from serpentine Event, and to extend its scope of functionality
 class Onset(Event):
 
@@ -2713,9 +2717,6 @@ class Onset(Event):
         """
 
         self.background = background
-
-        # A fine cadence is less than 1 minute -> requires computation time
-        FINE_CADENCE_SC = ("solo", "wind")
 
         def dt_str_to_int(stop):
             """
