@@ -354,18 +354,18 @@ class Onset(Event):
             'H' : "Protons",
             'i' : "Ions"
         }
-        
+
         spacecraft = self.spacecraft
         sensor = self.sensor
         viewing = self.viewing
         species = self.species
 
-        # Correct spacecraft name
-        if not self.custom_data:
+        # Correct spacecraft name. Always get the correct name if spacecraft is in SEPPY,
+        if spacecraft in SEPPY_SPACECRAFT:
             spacecraft = sc_abbreviations_dict[spacecraft]
 
         # Correct species name
-        if not self.custom_data:
+        if species in species_abbreviations_dict.keys():
             species = species_abbreviations_dict[species]
 
         # Make sensor all-caps
