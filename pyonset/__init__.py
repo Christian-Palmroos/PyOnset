@@ -126,9 +126,9 @@ class Onset(Event):
             if sensor in ["ERNE-HED"]:
                 sensor = "ERNE"
 
-            if species in ("protons", "ions"):
+            if species in PROTON_IDENTIFIERS:
                 species = 'p'
-            if species in ("electrons", "electron"):
+            if species in ELECTRON_IDENTIFIERS:
                 species = 'e'
 
             self.start_date = start_date
