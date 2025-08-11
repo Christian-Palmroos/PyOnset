@@ -3091,7 +3091,7 @@ class Onset(Event):
                                             sample_size=sample_size, resample=f"{i}min", erase=erase, small_windows=small_windows,
                                             cusum_minutes=cusum_minutes, sigma_multiplier=sigma, detrend=True, k_model=k_model)
                 next_run_uncertainty = next_run_stats["1-sigma_confidence_interval"][1] - next_run_stats["1-sigma_confidence_interval"][0]
-                next_run_uncertainty_mins = (next_run_stats["1-sigma_confidence_interval"][1] - next_run_stats["1-sigma_confidence_interval"][0]).seconds // 60
+                next_run_uncertainty_mins = int(np.round((next_run_stats["1-sigma_confidence_interval"][1] - next_run_stats["1-sigma_confidence_interval"][0]).seconds / 60))
 
                 if not isinstance(next_run_uncertainty, pd._libs.tslibs.nattype.NaTType):
                     if prints:
@@ -3120,8 +3120,8 @@ class Onset(Event):
                             print(f"Averaging from {i} minutes up to {upto_averaging_display} minutes")
 
                     else:
-                        if prints:
-                            print(f"~68 % uncertainty less than current time-averaging. Terminating.")
+                        # if prints:
+                          #   print(f"~68 % uncertainty less than current time-averaging. Terminating.")
 
                         stats_arr.add(self)
                         stats_arr.calculate_weighted_uncertainty(weights)
@@ -3141,7 +3141,7 @@ class Onset(Event):
 
 
         # Here if int_times gets too long, coarsen it up a little from 15 minutes onward
-        # Logic of this selection: preserve an element of int_times if it's at most 10 OR if it's divisible by 5
+        # Logic of this selection: preserve an element of int_times if it's at most 15 OR if it's divisible by 5
         if limit_computation_time:
             int_times = int_times[np.where((int_times <= 15) | (int_times%5==0))]
 
