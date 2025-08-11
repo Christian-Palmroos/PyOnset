@@ -57,7 +57,7 @@ from .datetime_utilities import datetime_to_sec, datetime_nanmedian, detrend_ons
                                 get_time_reso, calculate_cusum_window, find_biggest_nonzero_unit, \
                                 get_figdate, check_confidence_intervals
 
-from .calc_utilities import z_score, k_parameter, experimental_k_param
+from .calc_utilities import z_score, sigma_norm, k_parameter
 from .plot_utilities import set_fig_ylimits, set_standard_ticks, set_legend, \
                             TITLE_FONTSIZE, STANDARD_FIGSIZE, VDA_FIGSIZE, AXLABEL_FONTSIZE, \
                             TICK_LABELSIZE, TXTBOX_SIZE, LEGEND_SIZE, COLOR_SCHEME
@@ -462,7 +462,7 @@ class Onset(Event):
 
     def cusum_onset(self, channels, background_range, viewing=None, resample=None, cusum_minutes=30, sigma=2, title=None, save=False, savepath=None, 
                     yscale='log', ylim=None, erase=None, xlim=None, show_stats=True, diagnostics=False, plot=True, fname:str=None,
-                    experimental_k:bool=False, poisson_test:bool=False):
+                    k_model:callable=None, poisson_test:bool=False, norm='z'):
         """
         Does a Poisson-CUSUM-method-based onset analysis for given OnsetAnalysis object.
         Based on an earlier version by: Eleanna Asvestari <eleanna.asvestari@helsinki.fi>
@@ -503,9 +503,10 @@ class Onset(Event):
                 Switch to produce a plot. 
         fname : {str} default None
                 A custom name for the figure if saved.
-        experimental_k : {bool} default False
+        k_model : {Callable} default None.
                 Normalizes the CUSUM k-parameter to sigma*sigma_multiplier (std*n)
         poisson_test : {bool}, default False
+        norm : {str} Either 'z' for z-standardization or 'sigma' for stadardization to std.
         Returns:
         ---------
         onset_stats: list
@@ -601,7 +602,7 @@ class Onset(Event):
         # onset_stats = [ma, md, k_round, h, norm_channel, cusum, onset_time]
         if self.unit not in ("Counting rate [1/s]", "Count rate [1/s]", "Counting rate", "Count rate", "counting rate", \
                              "count rate", "Counting_rate", "Count_rate", "Counts", "counts"):
-            onset_stats = onset_determination(background_stats, flux_series, cusum_window, background_end, sigma, experimental_k=experimental_k)
+            onset_stats = onset_determination(background_stats, flux_series, cusum_window, background_end, sigma, k_model=k_model)
         else:
             # If the unit is count rate (1/s), then employ Poisson-CUSUM without using z-standardized intensity
             onset_stats = onset_determination_cr(background_stats, flux_series, cusum_window, background_end, sigma)
@@ -759,10 +760,6 @@ class Onset(Event):
             # time series (with k) and a heatmap displaying k as a function of bg mu and sigma.
             if diagnostics:
 
-                k_model = None
-                if experimental_k:
-                    k_model = experimental_k_param
-
                 # Create gridspec to align new plots
                 gc = fig.add_gridspec(nrows=3, ncols=2, hspace=0.19)
 
@@ -772,7 +769,8 @@ class Onset(Event):
                 k_ax = fig.add_subplot(gc[1,1])
 
                 # Plotting (k_contour returns the colorbar if axes are readily provided)
-                self.z_score_plot(background=background_range, n_sigma=sigma, ax=z_ax, xlim=xlim, k_model=k_model)
+                self.z_score_plot(series=onset_stats[4], background=background_range, n_sigma=sigma, 
+                                  ax=z_ax, xlim=xlim, k_model=k_model, norm=norm)
 
                 # Plotting the CUSUM function. onset_stats[5] == cusum, onset_stats[3] == h
                 self.cusum_plot(cusum=onset_stats[5], h=onset_stats[3], background=background_range, ax=c_ax,
@@ -858,21 +856,24 @@ class Onset(Event):
     
         return (fig,ax)
 
-    def z_score_plot(self, background, n_sigma:int, ax:plt.Axes=None, yscale:str="log",
-                     xlim:tuple|list=None, ylim:tuple|list=None, k_model=None) -> plt.Figure:
+    def z_score_plot(self, series:pd.Series, background:BootstrapWindow, n_sigma:int, ax:plt.Axes=None, yscale:str="log",
+                     xlim:tuple|list=None, ylim:tuple|list=None, k_model=None,
+                     norm:str='z') -> plt.Figure:
         """
         Plots the z-score of the event, i.e., the z-standardized intensity.
         Displays the mean, standard deviation and the k-parameter calculated from background params.
 
         Parameters:
         -----------
+        series : {pd.Series} the time series to plot
         background : {BootstrapWindow}
         n_sigma : {int}
         ax : {plt.Axes}
         y_scale : {str}
         xlim : {tuple|list}
         ylim : {tuple|list}
-        k_model : {Function} Model that calculates k.
+        k_model : {callable} Model that calculates k. Default None -> k^SEPpy
+        norm: {str} Either 'z' (default) or 'sigma'.
 
         Returns:
         -----------
@@ -884,7 +885,13 @@ class Onset(Event):
         # params (mu,sigma) to calculate z-standardized intensity
         mu = background.background_selection.mean()
         sigma = background.background_selection.std()
-        z_series = z_score(series=self.flux_series, mu=mu, sigma=sigma)
+
+        if norm=='z':
+            norm_mu = 0
+            norm_sigma = 1
+        else:
+            norm_mu = mu/sigma
+            norm_sigma = 1
 
         # Initialize the figure
         if ax is None:
@@ -901,9 +908,9 @@ class Onset(Event):
         if isinstance(ylim, (list,tuple)):
             ax.set_ylim(ylim[0], ylim[1])
 
-        ax.step(z_series.index, z_series.values, color="green", where="mid", zorder=1)
-        ax.axhline(y=0, c="red", ls="--", label=r"$\mu$=0")
-        ax.axhline(y=1, c="red", ls=":", label=r"$\sigma$=1")
+        ax.step(series.index, series.values, color="green", where="mid", zorder=1)
+        ax.axhline(y=norm_mu, c="red", ls="--", label=r"$\mu$=0")
+        ax.axhline(y=norm_sigma, c="red", ls=":", label=r"$\sigma$=1")
 
         # Display the background on the plot
         ax.axvspan(xmin=background.start, xmax=background.end, color="#e41a1c", alpha=0.10)
@@ -914,7 +921,10 @@ class Onset(Event):
         current_k = k_model(mu=mu, sigma=sigma, sigma_multiplier=n_sigma)
         ax.axhline(y=current_k, c='k', ls="--", zorder=2, label=f"k={current_k:.2f}")
 
-        ax.set_title("z-standardized intensity")
+        if norm=='z':
+            title_str = "z-standardized intensity"
+        else:title_str = r"$\sigma$-standardized intensity"
+        ax.set_title(title_str)
         ax.legend()
 
         if ax_provided:
@@ -1190,7 +1200,7 @@ class Onset(Event):
 
     def statistic_onset(self, channels, Window, viewing:str, resample:str=None, erase:tuple=None, sample_size:float=None, cusum_minutes:int=None, 
                         small_windows:str=None, offset_origins:bool=True, detrend=True, sigma_multiplier=2,
-                        experimental_k=False):
+                        k_model=None):
         """
         This method looks at a particular averaging window with length <windowlen>, and draws from it
         points <n_bstraps> times. From these <n_bstraps> different distributions of measurements, it 
@@ -1228,8 +1238,8 @@ class Onset(Event):
                     Controls if the onset times are 'de-trended', i.e., shifted forward in time by 0.5*time_resolution - 30s. Does not 
                     apply to 1min data.
         sigma_multiplier : {int, float} default 2
-                    The multiplier for the $\\mu_{d}$ variable in the CUSUM method.
-        experimental_k : {bool} Enables experimental k-parameter calculation -> normalizes k to (sigma*sigma_multiplier)
+                    The multiplier n for the $\\mu_{d}$ variable in the CUSUM method.
+        k_model : {Callable} Chooses the model for the k-parameter from the calc_utilities library in PyOnset.
         Returns:
         -----------
         mean_onset: a timestamp indicating the mean of all onset times found
@@ -1417,7 +1427,7 @@ class Onset(Event):
 
                     # Find an onset and save it into onset_series. Use the chosen series from the list of series
                     onset_i = onset_determination([mu, sigma], chosen_series, cusum_window, big_window_end, sigma_multiplier=sigma_multiplier,
-                                                  experimental_k=experimental_k)
+                                                  k_model=k_model)
                     onset_list.append(onset_i[-1])
 
 
@@ -2845,7 +2855,7 @@ class Onset(Event):
     def automatic_onset_stats(self, channels, background, viewing, erase, cusum_minutes:int=None, sample_size:float=0.5, 
                               small_windows=None, stop=None, weights="inverse_variance", limit_computation_time=True, sigma=2, 
                               detrend:bool=True, prints:bool=False, custom_data_dt:str=None,
-                              limit_averaging:str=None, fail_avg_stop:int=None, experimental_k=False):
+                              limit_averaging:str=None, fail_avg_stop:int=None, k_model=None):
         """
         Automates the uncertainty estimation for a single channel provided by Poisson-CUSUM-bootstrap hybrid method
 
@@ -2890,8 +2900,8 @@ class Onset(Event):
         fail_avg_stop : {int}, optional
                     If absolutely no onset is found in the native time resolution, how far should the method average the data to
                     try and find onset times? Default is up to 5 minutes.
-        experimental_k : {bool}, optional Default == False
-                    Enables experimental k-parameter calculation -> normalizes to (sigma*sigma_multiplier).
+        k_model : {Callable} Optional, default == None
+                    Chooses the model for the k-parameter in Pyonset.
         Returns:
         ----------
         stats_arr : {OnsetStatsArray}
@@ -2996,7 +3006,7 @@ class Onset(Event):
         # Run statistic_onset() once to get the confidence intervals for the bare not resampled, or 1-minute, data
         first_run_stats, _ = self.statistic_onset(channels=channels, Window=background, viewing=viewing, 
                                             sample_size=sample_size, resample=first_resample, erase=erase, small_windows=small_windows,
-                                            cusum_minutes=cusum_minutes, detrend=False, sigma_multiplier=sigma, experimental_k=experimental_k)
+                                            cusum_minutes=cusum_minutes, detrend=False, sigma_multiplier=sigma, k_model=k_model)
 
         # For the first iteration initialize the OnsetStatsArray object, which can plot the integration time plot
         # This step has to be done after running statistic_onset() the first time, because otherwise "self.bootstrap_onset_statistics"
@@ -3079,7 +3089,7 @@ class Onset(Event):
 
                 next_run_stats, _ = self.statistic_onset(channels=channels, Window=background, viewing=viewing, 
                                             sample_size=sample_size, resample=f"{i}min", erase=erase, small_windows=small_windows,
-                                            cusum_minutes=cusum_minutes, sigma_multiplier=sigma, detrend=True, experimental_k=experimental_k)
+                                            cusum_minutes=cusum_minutes, sigma_multiplier=sigma, detrend=True, k_model=k_model)
                 next_run_uncertainty = next_run_stats["1-sigma_confidence_interval"][1] - next_run_stats["1-sigma_confidence_interval"][0]
                 next_run_uncertainty_mins = (next_run_stats["1-sigma_confidence_interval"][1] - next_run_stats["1-sigma_confidence_interval"][0]).seconds // 60
 
@@ -3153,7 +3163,7 @@ class Onset(Event):
 
             _, _ = self.statistic_onset(channels=channels, Window=background, viewing=viewing, 
                                             sample_size=sample_size, resample=resample, erase=erase, small_windows=small_windows,
-                                            cusum_minutes=cusum_minutes, sigma_multiplier=sigma, detrend=detrend, experimental_k=experimental_k)
+                                            cusum_minutes=cusum_minutes, sigma_multiplier=sigma, detrend=detrend, k_model=k_model)
 
             stats_arr.add(self)
 
@@ -3167,7 +3177,7 @@ class Onset(Event):
     def onset_statistics_per_channel(self, background, viewing, channels=None, erase:list=None, cusum_minutes:int=30, sample_size:float=0.50, 
                                      weights:str="inverse_variance", detrend=True, limit_computation_time=True, average_to=None, print_output=False, 
                                      limit_averaging=None, fail_avg_stop:int=None, random_seed:int=None, sigma:int=2,
-                                     experimental_k:bool=False):
+                                     k_model=None):
         """
         Wrapper method for automatic_onset_stats(), that completes full onset and uncertainty analysis for a single channel.
         Does a complete onset uncertainty analysis on, by default all, the energy channels for the given instrument.
@@ -3212,8 +3222,8 @@ class Onset(Event):
                     try and find onset times? Default is up to 5 minutes.
         random_seed : {int}, optional
                     Passes down a seed for the random generator that picks the samples from the background window.
-        experimental_k : {bool}, optional
-                    Enables the experimental k-parameter calculation -> normalizes to sigma*sigma_multplier
+        k_model : {Callable} Optional, default == None
+                    Choose the model for the k-parameter in PyOnset.
         Returns:
         ----------
         uncertainty_stats_by_channel : {np.ndarray(OnsetStatsArray)}
@@ -3273,7 +3283,7 @@ class Onset(Event):
                                                                 stop=average_to, cusum_minutes=cusum_minutes, sample_size=sample_size, 
                                                                 weights=weights, detrend=detrend, limit_computation_time=limit_computation_time,
                                                                 prints=print_output, limit_averaging=limit_averaging, fail_avg_stop=fail_avg_stop,
-                                                                custom_data_dt=custom_data_dt, experimental_k=experimental_k)
+                                                                custom_data_dt=custom_data_dt, k_model=k_model)
 
             # Add statistics to the array that holds statistics related to each individual channel
             uncertainty_stats_by_channel = np.append(uncertainty_stats_by_channel, onset_uncertainty_stats)
@@ -4049,8 +4059,8 @@ def erase_glitches(series, glitch_threshold, time_barr):
 
 # ============================================================================
 
-def onset_determination(ma_sigma, flux_series, cusum_window, avg_end, sigma_multiplier : int = 2,
-                        experimental_k=False) -> list :
+def onset_determination(ma_sigma, flux_series, cusum_window, avg_end, sigma_multiplier:int = 2,
+                        k_model:callable=None, norm:str='z') -> list :
     """
     Calculates the CUSUM function to find an onset time from the given time series data.
 
@@ -4066,8 +4076,10 @@ def onset_determination(ma_sigma, flux_series, cusum_window, avg_end, sigma_mult
 
     sigma_multiplier : float, int
 
-    experimental_k : {bool} Enables the calculation of the k parameter such that the normalization is
-                            done by (sigma_multiplier*sigma) instead of sigma.
+    k_model : {callable} Choose the model for the k-parameter. Default None = k^SEPpy
+
+    norm : {str} How to normalize data. Either 'z' for z-standardizing, or 'sigma' for standardizing
+                to the standard deviation.
 
     Returns:
     --------
@@ -4087,52 +4099,38 @@ def onset_determination(ma_sigma, flux_series, cusum_window, avg_end, sigma_mult
     sigma = ma_sigma[1]
     md = ma + sigma_multiplier*sigma
 
-    # The standard way of calculating k
-    if not experimental_k:
-
-        # k may get really big if sigma is large in comparison to mean
-        try:
-            k = (md-ma)/(np.log(md)-np.log(ma))
-
-            # If ma == 0, then std == 0. Hence CUSUM should not be restricted at all -> k_round = 0
-            # Otherwise k_round should be 1
-            if not np.isnan(k):
-                k_round = round(k/sigma) if k/sigma > 1 else k/sigma
-            else:
-                k_round = 1 if ma > 0 else 0
-
-        except (ValueError, OverflowError) as error:
-            # the first ValueError I encountered was due to ma=md=2.0 -> k = "0/0"
-            # OverflowError is due to k = inf
-            # print(error)
-            k_round = 1 if ma > 0 else 0
-
-    # the experimental way of calculating k
+    # The standard way of calculating k in SEPpy
+    if k_model is None:
+        k_round = k_parameter(mu=ma, sigma=sigma, sigma_multiplier=sigma_multiplier)
+    # Non-default model for k
     else:
-        k_round = experimental_k_param(mu=ma, sigma=sigma, sigma_multiplier=sigma_multiplier)
+        k_round = k_model(mu=ma, sigma=sigma, sigma_multiplier=sigma_multiplier)
 
     # choose h, the variable dictating the "hastiness" of onset alert
     h = 2 if k_round>1 else 1
 
     alert = 0
     cusum = np.zeros(len(flux_series))
-    norm_channel = np.zeros(len(flux_series))
-    
+
+    if norm=='z':
+        norm_channel = z_score(series=flux_series, mu=ma, sigma=sigma)
+    elif norm=="sigma":
+        norm_channel = sigma_norm(series=flux_series, sigma=sigma)
+    else:
+        raise ValueError("Parameter norm has to be either 'z' or 'sigma'!")
+
     # set the onset as default to be NaT (Not a daTe)
     onset_time = pd.NaT
 
     # start at the index where averaging window ends
     for i in range(start_index,len(cusum)):
 
-        # normalize the observed flux
-        norm_channel[i] = (flux_series[i]-ma)/sigma
-
-        # calculate the value for ith cusum entry
+        # Calculate the value for the next cusum entry
         cusum[i] = max(0, norm_channel[i] - k_round + cusum[i-1])
 
         # check if cusum[i] is above threshold h, if it is -> increment alert
         if cusum[i]>h:
-            alert=alert+1
+            alert += 1
         else:
             alert=0
 

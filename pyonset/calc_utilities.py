@@ -11,24 +11,72 @@ import numpy as np
 import pandas as pd
 
 
+def kprime(mu:float, sigma:float, sigma_multiplier:float) -> float:
+    if sigma_multiplier == 0:
+        raise ValueError("sigma_multiplier may not be 0!")
+
+    # Let's not divide by zero
+    if isinstance(mu, float) and isinstance(sigma, float):
+        if mu==0 or sigma==0:
+            return 0
+
+    nominator = sigma_multiplier
+    denominator = np.log(1 + (sigma_multiplier*sigma)/mu)
+
+    kprime = (nominator/denominator) - (mu/sigma)
+
+    return kprime
+
+
+def k_classic(mu:float, sigma:float, sigma_multiplier:float) -> float:
+    """
+    The classical k-parameters as defined in the classical Poisson-CUSUM
+    """
+    if sigma_multiplier == 0:
+        raise ValueError("sigma_multiplier may not be 0!")
+
+    # Let's not divide by zero
+    if isinstance(mu, float):
+        if mu==0:
+            return 0
+
+    nominator = sigma_multiplier * sigma
+    denominator = np.log(1 + nominator/mu)
+
+    return nominator/denominator
+
+
 def k_parameter(mu:float, sigma:float, sigma_multiplier:float) -> float:
+    """
+    The standard k-parameter for SEPpy.
+    """
+    if sigma_multiplier == 0:
+        raise ValueError("sigma_multiplier may not be 0!")
 
-    md = mu + (sigma_multiplier*sigma)
+    # Let's not divide by zero
+    if isinstance(mu, float):
+        if mu==0:
+            return 0
 
-    nominator = md-mu
-    denominator = np.log(md) - np.log(mu)
+    nominator = sigma_multiplier
+    denominator = np.log(1 + (sigma_multiplier*sigma)/mu)
 
-    try:
-        k = nominator/(denominator*sigma)
-    except (ValueError, OverflowError):
-        k = 1 if mu > 0 else 0
-    return k
+    return nominator/denominator
 
 
 def experimental_k_param(mu:float, sigma:float, sigma_multiplier:float) -> float:
+    """
+    k-parameter but the argument of logarithm is flipped.
+    """
+    if sigma_multiplier == 0:
+        raise ValueError("sigma_multiplier may not be 0!")
+
+    # Let's not divide by zero
+    if isinstance(mu, float) and isinstance(sigma, float):
+        if mu==0 or sigma==0:
+            return 0
 
     nominator = sigma_multiplier
-
     denominator = np.log( 1 + mu/(sigma_multiplier*sigma) )
 
     try:
@@ -49,9 +97,25 @@ def z_score(series:pd.Series, mu:float, sigma:float):
     sigma : {float}
 
     Returns:
-    x_score_series : {pd.Series} The z-standardized version of the input series.
+    z_score_series : {pd.Series} The z-standardized version of the input series.
     """
     standard_values = (series.values - mu) / sigma
     return pd.Series(standard_values, index=series.index)
 
 
+def sigma_norm(series:pd.Series, sigma:float) -> pd.Series:
+    """
+    Normalizes intensity to background (bg) standard deviation (std).
+
+    Parameters:
+    ----------
+    series : {pd.Series} Time series representation of intensity.
+    sigma : {float} The bg std.
+
+    Returns:
+    --------
+    standard_series : {pd.Series} Intensity normalized to bg std.
+    """
+
+    standard_values = series.values/sigma
+    return pd.Series(standard_values, index=series.index)
