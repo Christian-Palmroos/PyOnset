@@ -11,7 +11,16 @@ import numpy as np
 import pandas as pd
 
 
-def kprime(mu:float, sigma:float, sigma_multiplier:float) -> float:
+def k_parameter(mu:float, sigma:float, sigma_multiplier:int|float) -> float:
+    """
+    The standard version of k for the z-standardized intensity CUSUM.
+
+    Parameters:
+    -----------
+    mu : {float} The mean of the background.
+    sigma : {float} The standard deviation of the background.
+    sigma_multiplier : {int,float} The multiplier for mu_{d}
+    """
     if sigma_multiplier == 0:
         raise ValueError("sigma_multiplier may not be 0!")
 
@@ -23,10 +32,7 @@ def kprime(mu:float, sigma:float, sigma_multiplier:float) -> float:
     nominator = sigma_multiplier
     denominator = np.log(1 + (sigma_multiplier*sigma)/mu)
 
-    kprime = (nominator/denominator) - (mu/sigma)
-
-    return kprime
-
+    return (nominator/denominator) - (mu/sigma)
 
 def k_classic(mu:float, sigma:float, sigma_multiplier:float) -> float:
     """
@@ -46,9 +52,9 @@ def k_classic(mu:float, sigma:float, sigma_multiplier:float) -> float:
     return nominator/denominator
 
 
-def k_parameter(mu:float, sigma:float, sigma_multiplier:float) -> float:
+def k_legacy(mu:float, sigma:float, sigma_multiplier:float) -> float:
     """
-    The standard k-parameter for SEPpy.
+    The old standard k-parameter for SEPpy.
     """
     if sigma_multiplier == 0:
         raise ValueError("sigma_multiplier may not be 0!")
@@ -61,7 +67,8 @@ def k_parameter(mu:float, sigma:float, sigma_multiplier:float) -> float:
     nominator = sigma_multiplier
     denominator = np.log(1 + (sigma_multiplier*sigma)/mu)
 
-    return nominator/denominator
+    # In legacy SEPpy, k is rounded to the nearest integer
+    return np.round(nominator/denominator)
 
 
 def experimental_k_param(mu:float, sigma:float, sigma_multiplier:float) -> float:

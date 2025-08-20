@@ -57,7 +57,7 @@ from .datetime_utilities import datetime_to_sec, datetime_nanmedian, detrend_ons
                                 get_time_reso, calculate_cusum_window, find_biggest_nonzero_unit, \
                                 get_figdate, check_confidence_intervals
 
-from .calc_utilities import z_score, sigma_norm, k_parameter
+from .calc_utilities import z_score, sigma_norm, k_parameter, k_legacy
 from .plot_utilities import set_fig_ylimits, set_standard_ticks, set_legend, \
                             TITLE_FONTSIZE, STANDARD_FIGSIZE, VDA_FIGSIZE, AXLABEL_FONTSIZE, \
                             TICK_LABELSIZE, TXTBOX_SIZE, LEGEND_SIZE, COLOR_SCHEME
@@ -460,9 +460,9 @@ class Onset(Event):
         self.set_channel_strings(channel_lows=low_bounds, channel_highs=high_bounds, unit=unit)
 
 
-    def cusum_onset(self, channels, background_range, viewing=None, resample=None, cusum_minutes=30, sigma=2, title=None, save=False, savepath=None, 
+    def cusum_onset(self, channels, background_range, viewing=None, resample=None, cusum_minutes=30, sigma_multiplier=2, title=None, save=False, savepath=None, 
                     yscale='log', ylim=None, erase=None, xlim=None, show_stats=True, diagnostics=False, plot=True, fname:str=None,
-                    k_model:callable=None, poisson_test:bool=False, norm='z'):
+                    k_model:callable|str=None, poisson_test:bool=False, norm='z', cusum_type:str=None):
         """
         Does a Poisson-CUSUM-method-based onset analysis for given OnsetAnalysis object.
         Based on an earlier version by: Eleanna Asvestari <eleanna.asvestari@helsinki.fi>
@@ -478,7 +478,7 @@ class Onset(Event):
         cusum_minutes: int
                 The amount of minutes the intensity should stay above threshold until onset is identified. Corresponds to the amount
                 of consecutive "out-of-control" alarms one should get before finding the onset.
-        sigma: int, default 2
+        sigma_multiplier: int, default 2
                 How many standard deviations is the mu_d variable of the CUSUM function?
         title: str, default None
                 A custom title for your plot.
@@ -503,10 +503,14 @@ class Onset(Event):
                 Switch to produce a plot. 
         fname : {str} default None
                 A custom name for the figure if saved.
-        k_model : {Callable} default None.
-                Normalizes the CUSUM k-parameter to sigma*sigma_multiplier (std*n)
+        k_model : {Callable, str} default None.
+                Choose a custom model for the k-parameter. Input must either be a function that calculates k with
+                identical signature to the 'k_parameter()' found in this software, or the word 'legacy' to chooce
+                the old SEPpy k-parameter.
         poisson_test : {bool}, default False
         norm : {str} Either 'z' for z-standardization or 'sigma' for stadardization to std.
+        cusum_type : {str} Choose either 'classic' for the classical definition of CUSUM (designed for integer numbers), or 'modified' for the
+                modified CUSUM that works on z-standardized values. Default == None -> modified.
         Returns:
         ---------
         onset_stats: list
@@ -600,12 +604,13 @@ class Onset(Event):
 
         # The function finds the onset and returns a list of stats related to the onset
         # onset_stats = [ma, md, k_round, h, norm_channel, cusum, onset_time]
-        if self.unit not in ("Counting rate [1/s]", "Count rate [1/s]", "Counting rate", "Count rate", "counting rate", \
-                             "count rate", "Counting_rate", "Count_rate", "Counts", "counts"):
-            onset_stats = onset_determination(background_stats, flux_series, cusum_window, background_end, sigma, k_model=k_model)
-        else:
+        if cusum_type is None or cusum_type=="modified":
+            onset_stats = onset_determination(background_stats, flux_series, cusum_window, background_end, sigma_multiplier, k_model=k_model)
+        elif cusum_type=="classic":
             # If the unit is count rate (1/s), then employ Poisson-CUSUM without using z-standardized intensity
-            onset_stats = onset_determination_cr(background_stats, flux_series, cusum_window, background_end, sigma)
+            onset_stats = onset_determination_cr(background_stats, flux_series, cusum_window, background_end, sigma_multiplier)
+        else:
+            raise ValueError(f"The parameter cusum_type must be either 'modified' or 'classic', not {cusum_type}. None=='modified'.")
 
         # If the timestamp of onset is not NaT, then onset was found
         if not isinstance(onset_stats[-1],pd._libs.tslibs.nattype.NaTType):
@@ -658,14 +663,6 @@ class Onset(Event):
                 if diagnostics:
                     print("omitted values:")
                     print(glitches)
-
-            # These are for bughunting
-            if diagnostics:
-                # ax.step(time, onset_stats[-3], color="darkgreen", label=r"$I_{z-score}$")
-                # ax.step(time, onset_stats[-2], color="maroon", label="CUSUM")
-                #ax.axhline(y=onset_stats[2], ls="--", color='k', label='k')
-                #ax.axhline(y=onset_stats[3], ls="-.", color='k', label='h')
-                pass
 
             # Onset time
             if onset_found:
@@ -769,7 +766,7 @@ class Onset(Event):
                 k_ax = fig.add_subplot(gc[1,1])
 
                 # Plotting (k_contour returns the colorbar if axes are readily provided)
-                self.z_score_plot(series=onset_stats[4], background=background_range, n_sigma=sigma, 
+                self.z_score_plot(series=onset_stats[4], background=background_range, n_sigma=sigma_multiplier, 
                                   ax=z_ax, xlim=xlim, k_model=k_model, norm=norm)
 
                 # Plotting the CUSUM function. onset_stats[5] == cusum, onset_stats[3] == h
@@ -777,7 +774,7 @@ class Onset(Event):
                                 xlim=xlim)
 
                 # Plotting the k-contour
-                k_cb = background_range.k_contour(n_sigma=sigma, fig=fig, ax=k_ax, k_model=k_model)
+                k_cb = background_range.k_contour(n_sigma=sigma_multiplier, fig=fig, ax=k_ax, k_model=k_model)
 
                 offset_down_z = 0.71
                 zc_height_increment = 0.03
@@ -843,7 +840,7 @@ class Onset(Event):
             ax.set_xlim(pd.to_datetime(xlim[0]), pd.to_datetime(xlim[1]))
 
         ax.step(self.flux_series.index, cusum, color="maroon", label="CUSUM")
-        ax.axhline(y=h, ls="--", color='k', label='h')
+        ax.axhline(y=h, ls="--", color='k', label=f"h={h}")
 
         # Display the background on the plot
         ax.axvspan(xmin=background.start, xmax=background.end, color="#e41a1c", alpha=0.10)
@@ -4103,6 +4100,8 @@ def onset_determination(ma_sigma, flux_series, cusum_window, avg_end, sigma_mult
     if k_model is None:
         k_round = k_parameter(mu=ma, sigma=sigma, sigma_multiplier=sigma_multiplier)
     # Non-default model for k
+    elif k_model=="legacy":
+        k_round = k_legacy(mu=ma, sigma=sigma, sigma_multiplier=sigma_multiplier)
     else:
         k_round = k_model(mu=ma, sigma=sigma, sigma_multiplier=sigma_multiplier)
 
