@@ -87,3 +87,28 @@ def set_legend(ax: plt.Axes, legend_loc: str, fontsize:int):
     # Sets the legend
     ax.legend(loc=legend_handle, bbox_to_anchor=legend_bbox, fontsize=fontsize)
 
+
+def max_averaging_reso_textbox(max_avg_time:pd.Timedelta, legend_loc:str, ax:plt.Axes):
+    """
+    Creates a textbox indicating the maximum time averaging that 
+    was applied to find the onset.
+
+    channel : {int|str}
+    legend_loc : {str} 'in' or 'out'
+    ax : {plt.Axes} The axes of the figure.
+    """
+
+    LABEL_LOCATION = (0.999, 1.01)
+    label_loc = "upper left" if legend_loc=="out" else "upper right"
+
+    label = AnchoredText(f"Max time averaging:\n{str(max_avg_time)[7:16]}",
+                            prop=dict(size=TXTBOX_SIZE), frameon=True,
+                            loc=label_loc, bbox_to_anchor=LABEL_LOCATION,
+                            bbox_transform=ax.transAxes)
+
+    # Settings of the textbox
+    label.patch.set_boxstyle("round, pad=0., rounding_size=0.2")
+    label.patch.set_linewidth(2.0)
+
+    # Add the label to the axes
+    ax.add_artist(label)

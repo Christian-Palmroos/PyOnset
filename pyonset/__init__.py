@@ -8,7 +8,7 @@ A library that holds the Onset class for PyOnset.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2025-08-11
+@Updated: 2025-08-22
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -58,7 +58,7 @@ from .datetime_utilities import datetime_to_sec, datetime_nanmedian, detrend_ons
                                 get_figdate, check_confidence_intervals
 
 from .calc_utilities import z_score, sigma_norm, k_parameter, k_legacy
-from .plot_utilities import set_fig_ylimits, set_standard_ticks, set_legend, \
+from .plot_utilities import set_fig_ylimits, set_standard_ticks, set_legend, max_averaging_reso_textbox, \
                             TITLE_FONTSIZE, STANDARD_FIGSIZE, VDA_FIGSIZE, AXLABEL_FONTSIZE, \
                             TICK_LABELSIZE, TXTBOX_SIZE, LEGEND_SIZE, COLOR_SCHEME
 
@@ -222,6 +222,9 @@ class Onset(Event):
         # This dictionary holds the median onset time and weighted confidence intervals derived by CUSUM-bootstrap 
         # hybrid method. In the dictionary each channel identifier is paired with a list of [mode, median, 1st_minus, 1st_plus, 2nd_minus, 2nd_plus]
         self.onset_statistics = {}
+
+        # A dictionary that holds the maximum averaging times for each channel
+        self.max_avg_times = {}
 
         # This is a dictionary that holds the information of each instrument's minimum time resolution. That value
         # will be used in the case that cusum-bootstrap yields uncertainty smaller than that.
@@ -462,7 +465,7 @@ class Onset(Event):
 
     def cusum_onset(self, channels, background_range, viewing=None, resample=None, cusum_minutes=30, sigma_multiplier=2, title=None, save=False, savepath=None, 
                     yscale='log', ylim=None, erase=None, xlim=None, show_stats=True, diagnostics=False, plot=True, fname:str=None,
-                    k_model:callable|str=None, poisson_test:bool=False, norm='z', cusum_type:str=None):
+                    k_model:str=None, poisson_test:bool=False, norm='z', cusum_type:str=None):
         """
         Does a Poisson-CUSUM-method-based onset analysis for given OnsetAnalysis object.
         Based on an earlier version by: Eleanna Asvestari <eleanna.asvestari@helsinki.fi>
@@ -931,9 +934,9 @@ class Onset(Event):
 
 
     def final_onset_plot(self, channel, resample:str=None, xlim:tuple|list=None, ylim:tuple|list=None,
-                    show_background:bool=True,
-                    onset:str="mode", title:str=None, legend_loc:str="out",
-                    savepath:str=None, save:bool=False, figname:str=None):
+                show_background:bool=True,
+                onset:str="mode", title:str=None, legend_loc:str="out",
+                savepath:str=None, save:bool=False, figname:str=None):
         """
         Produces the 'final' plot that showcases the intensity time series, the onset time and its 
         confidence intervals and the background selection.
@@ -964,6 +967,7 @@ class Onset(Event):
         SCND_CONF_END = 5
         VALID_ONSET_OPTIONS = ("mode", "median")
         HM_FORMAT = DateFormatter("%H:%M")
+        ONSETTIME_FORMAT = "%Y-%m-%d\n%H:%M:%S"
         HMINSEC_FORMAT = "%H:%M:%S"
 
         if onset not in VALID_ONSET_OPTIONS:
@@ -990,7 +994,7 @@ class Onset(Event):
         # Resample data to 1 min even if not requested if fine cadence
         if resample is None and self.spacecraft in FINE_CADENCE_SC:
             series = util.resample_df(series, "1 min")
-        
+
         # Creating the plot
         fig, ax = plt.subplots(figsize=STANDARD_FIGSIZE)
 
@@ -1013,7 +1017,7 @@ class Onset(Event):
         ax.step(series.index, series.values, color="tab:blue",   where="mid")
 
         # Onset time and confidence intervals:
-        ax.axvline(x=onset_time, color="red", zorder=5, label=f"onset time\n{onset_time.strftime(HMINSEC_FORMAT)}")
+        ax.axvline(x=onset_time, color="red", zorder=5, label=f"Onset time:\n{onset_time.strftime(ONSETTIME_FORMAT)}")
         ax.axvspan(xmin=conf_interval1_start, xmax=conf_interval1_end, 
                     color=COLOR_SCHEME["1-sigma"], zorder=2, alpha=.3,
                     label=f"~68 % confidence\n{conf_interval1_start.strftime(HMINSEC_FORMAT)}-{conf_interval1_end.strftime(HMINSEC_FORMAT)}")
@@ -1038,6 +1042,10 @@ class Onset(Event):
         ax.set_title(title, fontsize=TITLE_FONTSIZE)
 
         set_legend(ax=ax, legend_loc=legend_loc, fontsize=LEGEND_SIZE)
+
+        # Create a textbox that shows the maximum averaging time
+        max_avg_time = self.max_avg_times[channel[0]]
+        max_averaging_reso_textbox(max_avg_time, legend_loc=legend_loc, ax=ax)
 
         # Saving the figure
         if save:
@@ -1208,7 +1216,7 @@ class Onset(Event):
         The procedure described above is repeated <n_windows> times, yielding <n_windows>*<n_bstraps> onset times.
         
         Parameters:
-        ------------
+        -----------
         channels : int or list
                     Channel or channels that the onset is searched from
         Window: BootstrapWindow object
@@ -1236,9 +1244,9 @@ class Onset(Event):
                     apply to 1min data.
         sigma_multiplier : {int, float} default 2
                     The multiplier n for the $\\mu_{d}$ variable in the CUSUM method.
-        k_model : {Callable} Chooses the model for the k-parameter from the calc_utilities library in PyOnset.
+        k_model : {Callable|str} Chooses the model for the k-parameter from the calc_utilities library in PyOnset.
         Returns:
-        -----------
+        --------
         mean_onset: a timestamp indicating the mean of all onset times found
         std_onset: the standard deviation of onset times
         most_common_val: the most common onset time found
@@ -3116,10 +3124,12 @@ class Onset(Event):
 
                             print(f"Averaging from {i} minutes up to {upto_averaging_display} minutes")
 
+                    # No onset was found with any time averaging
                     else:
                         # if prints:
                           #   print(f"~68 % uncertainty less than current time-averaging. Terminating.")
 
+                        self.max_avg_times[channels] = pd.NaT
                         stats_arr.add(self)
                         stats_arr.calculate_weighted_uncertainty(weights)
                         return stats_arr
@@ -3131,6 +3141,7 @@ class Onset(Event):
                     if i==try_avg_stop:
                         if prints:
                             print(f"No onsets found with {i} min time averaging. Terminating.")
+                            self.max_avg_times[channels] = pd.NaT
                             stats_arr.calculate_weighted_uncertainty("int_time")
                             return stats_arr
                     else:
@@ -3163,6 +3174,10 @@ class Onset(Event):
                                             cusum_minutes=cusum_minutes, sigma_multiplier=sigma, detrend=detrend, k_model=k_model)
 
             stats_arr.add(self)
+
+        # Add the final resampling time used to the dictionary of max_averaging times and 
+        # the onset object otself to the stats_arr
+        self.max_avg_times[channels] = pd.Timedelta(minutes=upto_averaging_display)
 
         # Calculate the weighted medians and confidence intervals. This method automatically updates the onset object's
         # dictionary of uncertainties as well.
