@@ -857,7 +857,7 @@ class Onset(Event):
         return (fig,ax)
 
     def z_score_plot(self, series:pd.Series, background:BootstrapWindow, n_sigma:int, ax:plt.Axes=None, yscale:str="log",
-                     xlim:tuple|list=None, ylim:tuple|list=None, k_model=None,
+                     xlim:tuple|list=None, ylim:tuple|list=None, k_model:str=None,
                      norm:str='z') -> plt.Figure:
         """
         Plots the z-score of the event, i.e., the z-standardized intensity.
@@ -872,7 +872,9 @@ class Onset(Event):
         y_scale : {str}
         xlim : {tuple|list}
         ylim : {tuple|list}
-        k_model : {callable} Model that calculates k. Default None -> k^SEPpy
+        k_model : {Callable,str} Model that calculates k. Either a function with an identical signature
+                    to the k_parameter() defined in this software, or the string 'legacy' for the old
+                    definition of k.
         norm: {str} Either 'z' (default) or 'sigma'.
 
         Returns:
@@ -918,6 +920,11 @@ class Onset(Event):
         # Calculate k and mark it as a horizontal dashed line
         if k_model is None:
             k_model = k_parameter
+        elif k_model=="legacy":
+            k_model = k_legacy
+        else:
+            # Do nothing. Hopefully the user knows what they're doing.
+            pass
         current_k = k_model(mu=mu, sigma=sigma, sigma_multiplier=n_sigma)
         ax.axhline(y=current_k, c='k', ls="--", zorder=2, label=f"k={current_k:.2f}")
 
@@ -1198,8 +1205,9 @@ class Onset(Event):
                 fig.savefig(f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_{self.species}_all_channels.png", transparent=False,
                         facecolor='white', bbox_inches='tight')
 
+        plt.show()
+
         return fig, ax
-        
 
 
     def statistic_onset(self, channels, Window, viewing:str, resample:str=None, erase:tuple=None, sample_size:float=None, cusum_minutes:int=None, 
@@ -4108,7 +4116,7 @@ def erase_glitches(series, glitch_threshold, time_barr):
 # ============================================================================
 
 def onset_determination(ma_sigma, flux_series, cusum_window, avg_end, sigma_multiplier:int = 2,
-                        k_model:callable=None, norm:str='z') -> list :
+                        k_model:str=None, norm:str='z') -> list :
     """
     Calculates the CUSUM function to find an onset time from the given time series data.
 
@@ -4124,7 +4132,9 @@ def onset_determination(ma_sigma, flux_series, cusum_window, avg_end, sigma_mult
 
     sigma_multiplier : float, int
 
-    k_model : {callable} Choose the model for the k-parameter. Default None = k^SEPpy
+    k_model : {Callable|str} Choose the model for the k-parameter. Callable k has to have identical signature
+                to the k_parameter defined as a part of this software. String input 'legacy' uses the
+                old and outdated definition of k, introduced in the papers Palmroos et al., 2022; Palmroos et al., 2025.
 
     norm : {str} How to normalize data. Either 'z' for z-standardizing, or 'sigma' for standardizing
                 to the standard deviation.
