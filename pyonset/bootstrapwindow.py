@@ -15,7 +15,7 @@ from matplotlib import pyplot as plt
 from matplotlib.offsetbox import AnchoredText
 
 from .plot_utilities import BACKGROUND_ALPHA, TXTBOX_SIZE
-from .calc_utilities import k_parameter
+from .calc_utilities import k_parameter, k_legacy
 
 # We recommend to have at least this many data points in the background for good statistics
 MIN_RECOMMENDED_POINTS = 100
@@ -153,7 +153,7 @@ class BootstrapWindow:
         return True
 
     def k_contour(self, n_sigma:int, cmap:str=None, fig:plt.Figure=None, ax:plt.Axes=None,
-                  k_model=None):
+                  k_model:str=None):
         """
         Draws a k-contour plot as a function of background 
 
@@ -163,7 +163,8 @@ class BootstrapWindow:
         cmap : {str} Name of the colormap
         fig : {plt.Figure}
         ax : {plt.Axes}
-        k_model : {Function} The model that calculates k.
+        k_model : {Callable,str} The model that calculates k. Either a function or
+                    the string 'legacy'.
         """
 
         def order_of_magnitude(num):
@@ -183,6 +184,10 @@ class BootstrapWindow:
 
         if k_model is None:
             k_model = k_parameter
+        elif k_model=="legacy":
+            k_model = k_legacy
+        else:
+            pass
 
         ks = k_model(mu=xx, sigma=yy, sigma_multiplier=n_sigma)
         user_k = k_model(mu=mu, sigma=sigma, sigma_multiplier=n_sigma)
