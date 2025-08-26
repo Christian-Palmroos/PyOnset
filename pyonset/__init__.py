@@ -3035,6 +3035,8 @@ class Onset(Event):
                 if first_run_uncertainty_mins < 2 and self.spacecraft not in FINE_CADENCE_SC:
 
                     stats_arr.calculate_weighted_uncertainty()
+
+                    self.max_avg_times[channels] = pd.Timedelta(minutes=first_run_uncertainty_mins)
                     return stats_arr
 
                 else:
