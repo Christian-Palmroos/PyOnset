@@ -2857,7 +2857,8 @@ class Onset(Event):
 
 
     def automatic_onset_stats(self, channels, background, viewing, erase, cusum_minutes:int=None, sample_size:float=0.5, 
-                              small_windows=None, stop=None, weights="inverse_variance", limit_computation_time=True, sigma=2, 
+                              small_windows=None, stop=None, weights="inverse_variance", 
+                              limit_computation_time=True, sigma_multiplier=2, 
                               detrend:bool=True, prints:bool=False, custom_data_dt:str=None,
                               limit_averaging:str=None, fail_avg_stop:int=None, k_model=None):
         """
@@ -2890,7 +2891,7 @@ class Onset(Event):
                     distribution as the weights.
         limit_computation_time : {bool}, default True
                     If enabled, skips all integration times above 10 minutes that are not multiples of 5. 
-        sigma : {int, float} default 2
+        sigma_multiplier : {int, float} default 2
                     The multiplier for the $\\mu_{d}$ variable in the CUSUM method.
         detrend : {bool}, default True
                     Switch to apply a shift on all but the native data distributions such that the onset times are shifted backwards in
@@ -3010,7 +3011,7 @@ class Onset(Event):
         # Run statistic_onset() once to get the confidence intervals for the bare not resampled, or 1-minute, data
         first_run_stats, _ = self.statistic_onset(channels=channels, Window=background, viewing=viewing, 
                                             sample_size=sample_size, resample=first_resample, erase=erase, small_windows=small_windows,
-                                            cusum_minutes=cusum_minutes, detrend=False, sigma_multiplier=sigma, k_model=k_model)
+                                            cusum_minutes=cusum_minutes, detrend=False, sigma_multiplier=sigma_multiplier, k_model=k_model)
 
         # For the first iteration initialize the OnsetStatsArray object, which can plot the integration time plot
         # This step has to be done after running statistic_onset() the first time, because otherwise "self.bootstrap_onset_statistics"
@@ -3095,7 +3096,7 @@ class Onset(Event):
 
                 next_run_stats, _ = self.statistic_onset(channels=channels, Window=background, viewing=viewing, 
                                             sample_size=sample_size, resample=f"{i}min", erase=erase, small_windows=small_windows,
-                                            cusum_minutes=cusum_minutes, sigma_multiplier=sigma, detrend=True, k_model=k_model)
+                                            cusum_minutes=cusum_minutes, sigma_multiplier=sigma_multiplier, detrend=True, k_model=k_model)
                 next_run_uncertainty = next_run_stats["1-sigma_confidence_interval"][1] - next_run_stats["1-sigma_confidence_interval"][0]
                 next_run_uncertainty_mins = int(np.round((next_run_stats["1-sigma_confidence_interval"][1] - next_run_stats["1-sigma_confidence_interval"][0]).seconds / 60))
 
@@ -3172,7 +3173,7 @@ class Onset(Event):
 
             _, _ = self.statistic_onset(channels=channels, Window=background, viewing=viewing, 
                                             sample_size=sample_size, resample=resample, erase=erase, small_windows=small_windows,
-                                            cusum_minutes=cusum_minutes, sigma_multiplier=sigma, detrend=detrend, k_model=k_model)
+                                            cusum_minutes=cusum_minutes, sigma_multiplier=sigma_multiplier, detrend=detrend, k_model=k_model)
 
             stats_arr.add(self)
 
@@ -3187,10 +3188,11 @@ class Onset(Event):
         return stats_arr
 
 
-    def onset_statistics_per_channel(self, background, viewing, channels=None, erase:list=None, cusum_minutes:int=30, sample_size:float=0.50, 
-                                     weights:str="inverse_variance", detrend=True, limit_computation_time=True, average_to=None, print_output=False, 
-                                     limit_averaging=None, fail_avg_stop:int=None, random_seed:int=None, sigma:int=2,
-                                     k_model=None):
+    def onset_statistics_per_channel(self, background, viewing, channels=None, erase:list=None, cusum_minutes:int=30, 
+                                     sample_size:float=0.50, weights:str="inverse_variance", detrend=True, 
+                                     limit_computation_time=True, average_to=None, print_output=False, 
+                                     limit_averaging=None, fail_avg_stop:int=None, random_seed:int=None, 
+                                     sigma_multiplier:int=2, k_model=None):
         """
         Wrapper method for automatic_onset_stats(), that completes full onset and uncertainty analysis for a single channel.
         Does a complete onset uncertainty analysis on, by default all, the energy channels for the given instrument.
@@ -3292,7 +3294,7 @@ class Onset(Event):
                 print(f"Channel {channel}:")
 
             # automatic_onset_stats() -method runs statistic_onset() for all different data integration times for a single channel
-            onset_uncertainty_stats = self.automatic_onset_stats(channels=channel, background=background, viewing=viewing, erase=erase, sigma=sigma,
+            onset_uncertainty_stats = self.automatic_onset_stats(channels=channel, background=background, viewing=viewing, erase=erase, sigma_multiplier=sigma_multiplier,
                                                                 stop=average_to, cusum_minutes=cusum_minutes, sample_size=sample_size, 
                                                                 weights=weights, detrend=detrend, limit_computation_time=limit_computation_time,
                                                                 prints=print_output, limit_averaging=limit_averaging, fail_avg_stop=fail_avg_stop,
