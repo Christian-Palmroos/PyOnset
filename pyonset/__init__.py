@@ -2022,19 +2022,28 @@ class Onset(Event):
         plt.show()
 
 
-    def scatter_histogram(self, x:str="mean", xbinwidth:int=1, ybinwidth:str="1min") -> None:
+    def scatter_histogram(self, xaxis:str="mean", xbinwidth:int|float=None, ybinwidth:str="1min",
+                      hist_grids:bool=False, histy_logscale:bool=False,
+                      return_fig_and_axes=False) -> None|tuple:
         """
         A method to plot a scatter and histogram plots of either background mean or background std
-        vs. onset time.
+        vs. onset time. Always uses the statistics of the channel for which 'onset_statistics_per_channel()'
+        was ran last.
 
         Parameters:
         -----------
-        x : str, default 'mean'
-            Either 'mean' or 'std'
-        xbinwidth : int
-            The width of x-axis bins
-        ybinwidth: str
-            Pandas-compatible time string for the width of onset distribution.
+        xaxis : {str}, optional
+            Either 'mean' or 'std'. Default='mean'
+        xbinwidth : {int,float}, optional
+            The width of x-axis bins. Defaults to a fourth of the standard deviation of the sample.
+        ybinwidth: {str}, optional
+            Pandas-compatible time string for the width of onset distribution. Default='1min'
+        hist_grids : {bool}, optional
+            Switch for 'horizontal' gridlines on the histograms. Default=False
+        histy_logscale : {bool}, optional
+            Makes the onset histogram logscale. Default=False
+        return_fig_and_axes : {bool}, optional
+            Returns the figure and axes. Default=False
         """
 
         x_axes_choice = {
@@ -2042,11 +2051,11 @@ class Onset(Event):
             "std" : self.mu_and_sigma_distributions["sigmas_list"]
         }
 
-        xdata = x_axes_choice[x]
+        xdata = x_axes_choice[xaxis]
         ydata = self.bootstrap_onset_statistics["onset_list"]
 
-        title = r"Background $\mu$ vs onset time" if x=="mean" else r"Background $\sigma$ vs onset time"
-        xlabel = r"Sample mean intensity" if x=="mean" else r"Sample standard deviation"
+        title = r"Background $\mu$ vs onset time" if xaxis=="mean" else r"Background $\sigma$ vs onset time"
+        xlabel = r"Sample mean intensity" if xaxis=="mean" else r"Sample standard deviation"
         ylabel = "Onset time [D HH:MM]"
 
         # definitions for the axes
@@ -2054,13 +2063,14 @@ class Onset(Event):
         bottom, height = 0.1, 0.65
         spacing = 0.005
 
+        SUPTITLE_XOFFSET = 0.45
+        SUPTITLE_YOFFSET = 1.0
+
         rect_scatter = [left, bottom, width, height]
         rect_histx = [left, bottom + height + spacing, width, 0.2]
         rect_histy = [left + width + spacing, bottom, 0.2, height]
 
-        rcParams["font.size"] = 20
-
-        def scatter_hist(x, y, ax, ax_histx, ax_histy) -> None:
+        def scatter_hist(x, y, ax, ax_histx, ax_histy, histy_logscale:bool) -> None:
 
             # No labels for the histograms
             ax_histx.tick_params(axis="x", labelbottom=False)
@@ -2075,14 +2085,23 @@ class Onset(Event):
             ax.set_ylim(ylims)
             ax.grid(True)
 
-            # Now determine limits by hand:
-            binwidth = xbinwidth
-            xymax = int(np.max(x))
-            xmin = int(np.min(x))
+            # Now determine the limits and binwidths
+            if xbinwidth is None:
+                # By default the binwidth is a fourth of the standard deviation of the sample
+                binwidth = np.std(x)/4
+            else:
+                binwidth = xbinwidth
+
+            xymax = np.nanmax(x) + 2*binwidth
+            xmin = np.nanmin(x) - 2*binwidth
 
             xbins = np.arange(xmin, xymax, binwidth)
             for i, arr in enumerate(x):
                 ax_histx.hist(arr, bins=xbins, color=self.window_colors[i], alpha=0.6)
+            histx_yticks = ax_histx.get_yticks()
+            ax_histx.set_yticks([tick for tick in histx_yticks if tick!=0])
+
+            ax_histx.grid(axis='y')
 
             half_bin = pd.Timedelta(seconds=30)
             ybins = pd.date_range(start=ylims[0]+half_bin, end=ylims[1]+half_bin, freq=ybinwidth).tolist()
@@ -2092,7 +2111,16 @@ class Onset(Event):
             ax_histy.hist(y, bins=ybins, edgecolor="black", orientation='horizontal', weights=onset_frequencies)
 
             max_freq = np.nanmax([pair[1] for pair in self.bootstrap_onset_statistics["unique_onsets"]])
-            ax_histy.set_xticks([np.round(max_freq,2)/4, np.round(max_freq,2)/2, np.round(max_freq,2)])
+
+            if histy_logscale:
+                ax_histy.set_xscale("log")
+            else:
+                ax_histy.set_xticks([np.round(max_freq*0.33,1), np.round(max_freq*0.66,1), np.round(max_freq,2)])
+
+            histy_xticks = ax_histy.get_xticks()
+            ax_histy.set_xticks([tick for tick in histy_xticks if tick<=1])
+
+            ax_histy.grid(axis='x')
 
 
         # Start with a square-shaped Figure
@@ -2107,15 +2135,16 @@ class Onset(Event):
         ax_histy = fig.add_axes(rect_histy, sharey=ax)
 
         # Use the function defined above
-        scatter_hist(xdata, ydata, ax, ax_histx, ax_histy)
+        scatter_hist(xdata, ydata, ax, ax_histx, ax_histy, histy_logscale=histy_logscale)
         
-        ax.set_xlabel(xlabel)
-        ax.set_ylabel(ylabel)
+        ax.set_xlabel(xlabel, fontsize=AXLABEL_FONTSIZE)
+        ax.set_ylabel(ylabel, fontsize=AXLABEL_FONTSIZE)
 
-        fig.suptitle(title, fontsize=20)
+        fig.suptitle(t=f"{self.last_used_channel} {title}", x=SUPTITLE_XOFFSET, y=SUPTITLE_YOFFSET, fontsize=TITLE_FONTSIZE)
 
-        # plt.savefig("histogram_bg_vars")
         plt.show()
+        if return_fig_and_axes:
+            return fig, ax
 
 
     def VDA(self, onset_times=None, Onset=None, energy:str='gmean', selection=None, 
