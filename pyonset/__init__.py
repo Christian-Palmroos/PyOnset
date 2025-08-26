@@ -944,7 +944,7 @@ class Onset(Event):
         By default:
             -plots the intensity in 1 min cadence, even for instruments with finer cadence.
             -sets the horizontal boundaries to +3/-5 hours from the onset time.
-            -sets the vertical boundaries to 
+            -sets the vertical boundaries like cusum_onset() does (data_min/2, data_max*1.5).
 
         Parameters:
         ----------
@@ -984,8 +984,7 @@ class Onset(Event):
             series, en_channel_string = self.data[channel], channel
         # Standard (SEPpy) data:
         else:
-            channel = [channel]
-            series, en_channel_string = self.choose_flux_series(channels=channel, viewing=self.viewing)
+            series, en_channel_string = self.choose_flux_series(channels=[channel], viewing=self.viewing)
 
         # Resample the data if requested
         if isinstance(resample,str):
@@ -1044,7 +1043,7 @@ class Onset(Event):
         set_legend(ax=ax, legend_loc=legend_loc, fontsize=LEGEND_SIZE)
 
         # Create a textbox that shows the maximum averaging time
-        max_avg_time = self.max_avg_times[channel[0]]
+        max_avg_time = self.max_avg_times[channel]
         max_averaging_reso_textbox(max_avg_time, legend_loc=legend_loc, ax=ax)
 
         # Saving the figure
@@ -1060,13 +1059,13 @@ class Onset(Event):
             # Generate a name for the fig
             else:
                 if self.spacecraft.lower() in ["bepicolombo", "bepi"]:
-                    plt.savefig(f"{savepath}{os.sep}{self.spacecraft}{self.sensor}_side{viewing}_{self.species}_{channel[0]}_onset.png", transparent=False,
+                    plt.savefig(f"{savepath}{os.sep}{self.spacecraft}{self.sensor}_side{viewing}_{self.species}_{channel}_onset.png", transparent=False,
                             facecolor="white", bbox_inches="tight")
                 elif self.viewing is not None:
-                    plt.savefig(f"{savepath}{os.sep}{self.spacecraft}{self.sensor}_{self.viewing.lower()}_{self.species}_{channel[0]}_onset.png", transparent=False,
+                    plt.savefig(f"{savepath}{os.sep}{self.spacecraft}{self.sensor}_{self.viewing.lower()}_{self.species}_{channel}_onset.png", transparent=False,
                             facecolor="white", bbox_inches="tight")
                 else:
-                    plt.savefig(f"{savepath}{os.sep}{self.spacecraft}{self.sensor}_{self.species}_{channel[0]}_onset.png", transparent=False,
+                    plt.savefig(f"{savepath}{os.sep}{self.spacecraft}{self.sensor}_{self.species}_{channel}_onset.png", transparent=False,
                             facecolor="white", bbox_inches="tight")
 
         plt.show()
