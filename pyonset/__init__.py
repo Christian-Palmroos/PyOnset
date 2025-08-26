@@ -2070,7 +2070,8 @@ class Onset(Event):
         rect_histx = [left, bottom + height + spacing, width, 0.2]
         rect_histy = [left + width + spacing, bottom, 0.2, height]
 
-        def scatter_hist(x, y, ax, ax_histx, ax_histy, histy_logscale:bool) -> None:
+        def scatter_hist(x, y, ax, ax_histx, ax_histy, histy_logscale:bool,
+                         hist_grids:bool) -> None:
 
             # No labels for the histograms
             ax_histx.tick_params(axis="x", labelbottom=False)
@@ -2101,7 +2102,8 @@ class Onset(Event):
             histx_yticks = ax_histx.get_yticks()
             ax_histx.set_yticks([tick for tick in histx_yticks if tick!=0])
 
-            ax_histx.grid(axis='y')
+            if hist_grids:
+                ax_histx.grid(axis='y')
 
             half_bin = pd.Timedelta(seconds=30)
             ybins = pd.date_range(start=ylims[0]+half_bin, end=ylims[1]+half_bin, freq=ybinwidth).tolist()
@@ -2120,7 +2122,8 @@ class Onset(Event):
             histy_xticks = ax_histy.get_xticks()
             ax_histy.set_xticks([tick for tick in histy_xticks if tick<=1])
 
-            ax_histy.grid(axis='x')
+            if hist_grids:
+                ax_histy.grid(axis='x')
 
 
         # Start with a square-shaped Figure
@@ -2135,7 +2138,8 @@ class Onset(Event):
         ax_histy = fig.add_axes(rect_histy, sharey=ax)
 
         # Use the function defined above
-        scatter_hist(xdata, ydata, ax, ax_histx, ax_histy, histy_logscale=histy_logscale)
+        scatter_hist(xdata, ydata, ax, ax_histx, ax_histy, histy_logscale=histy_logscale,
+                     hist_grids=hist_grids)
         
         ax.set_xlabel(xlabel, fontsize=AXLABEL_FONTSIZE)
         ax.set_ylabel(ylabel, fontsize=AXLABEL_FONTSIZE)
