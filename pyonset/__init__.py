@@ -3284,7 +3284,8 @@ class Onset(Event):
         print_output : {bool}
                     Switch to print when a new channel is being analyzed and for how far it will be time-averaged to.
         limit_averaging : {str}, optional
-                    Pandas compatible time string to limit the averaging time to a certain time, e.g., '60 min'
+                    Pandas compatible time string to limit the averaging time to a certain time, e.g., '60 min'. if not provided,
+                    then averaging will be limited by the recommended background.
         fail_avg_stop : {int}, optional
                     If absolutely no onset is found in the native time resolution, how far should the method average the data to
                     try and find onset times? Default is up to 5 minutes.
@@ -3339,6 +3340,10 @@ class Onset(Event):
 
         if print_output:
             background.print_max_recommended_reso()
+
+        # If the time-averaging was not limited manually, limit it to the maximum recommended one
+        if limit_averaging is None:
+            limit_averaging = f"{background.max_recommended_reso} min"
 
         # Loop through all the channels and save the onset statistics to objects that will be stored in the array initialized in the start
         for channel in all_channels:

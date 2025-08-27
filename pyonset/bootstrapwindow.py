@@ -45,6 +45,7 @@ class BootstrapWindow:
         self.init_state = self.save_state(return_state=True)
 
         self.background_selection = None
+        self.max_recommended_reso: int = None
         self.mu = np.nan
         self.sigma = np.nan
 
@@ -243,7 +244,7 @@ class BootstrapWindow:
         return (ax, fig)
 
     def print_max_recommended_reso(self):
-        f"""
+        """
         Prints out the maximum recommended resolution that the time series should be averaged to in order to still have
         at least {MIN_RECOMMENDED_POINTS} data points inside the background window.
         """
@@ -251,8 +252,8 @@ class BootstrapWindow:
         minutes_in_background = len(self)
 
         # We recommend a maximum reso such that there are at least {MIN_RECOMMENDED_POINTS} data points to pick from
-        max_reso = int(minutes_in_background/MIN_RECOMMENDED_POINTS)
-        print(f"Your chosen background is {minutes_in_background} minutes long. To preserve the minimum of {MIN_RECOMMENDED_POINTS} data points to choose from,\nit is recommended that you either limit averaging up to {max_reso} minutes or enlarge the background window.")
+        self.max_recommended_reso = int(minutes_in_background/MIN_RECOMMENDED_POINTS)
+        print(f"Your chosen background is {minutes_in_background} minutes long. To preserve the minimum of {MIN_RECOMMENDED_POINTS} data points to choose from,\nit is recommended that you either limit averaging up to {self.max_recommended_reso} minutes or enlarge the background window.")
 
 
     def move_window(self, hours=0, minutes=0):
