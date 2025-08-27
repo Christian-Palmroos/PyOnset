@@ -41,9 +41,8 @@ def k_classic(mu:float, sigma:float, sigma_multiplier:float) -> float:
         raise ValueError("sigma_multiplier may not be 0!")
 
     # Let's not divide by zero
-    if isinstance(mu, float):
-        if mu==0:
-            return 0
+    if mu==0:
+        return 0
 
     nominator = sigma_multiplier * sigma
     denominator = np.log(1 + nominator/mu)
@@ -59,9 +58,8 @@ def k_legacy(mu:float, sigma:float, sigma_multiplier:float) -> float:
         raise ValueError("sigma_multiplier may not be 0!")
 
     # Let's not divide by zero
-    if isinstance(mu, float):
-        if mu==0:
-            return 0
+    if mu==0:
+        return 0
 
     nominator = sigma_multiplier
     denominator = np.log(1 + (sigma_multiplier*sigma)/mu)
