@@ -57,7 +57,7 @@ from .datetime_utilities import datetime_to_sec, datetime_nanmedian, detrend_ons
                                 get_time_reso, calculate_cusum_window, find_biggest_nonzero_unit, \
                                 get_figdate, check_confidence_intervals
 
-from .calc_utilities import z_score, sigma_norm, k_parameter, k_legacy
+from .calc_utilities import z_score, sigma_norm, k_parameter, k_legacy, k_classic
 from .plot_utilities import set_fig_ylimits, set_standard_ticks, set_legend, max_averaging_reso_textbox, \
                             TITLE_FONTSIZE, STANDARD_FIGSIZE, VDA_FIGSIZE, AXLABEL_FONTSIZE, \
                             TICK_LABELSIZE, TXTBOX_SIZE, LEGEND_SIZE, COLOR_SCHEME
@@ -4249,21 +4249,22 @@ def onset_determination_cr(ma_sigma, flux_series, cusum_window, avg_end, sigma_m
     md = ma + sigma_multiplier*sigma
 
     # k may get really big if sigma is large in comparison to mean
-    try:
-        k = (md-ma)/(np.log(md)-np.log(ma))
+    # try:
+    #     k = (md-ma)/(np.log(md)-np.log(ma))
 
-        # If ma == 0, then std == 0. Hence CUSUM should not be restricted at all -> k_round = 0
-        # Otherwise k_round should be 1
-        if not np.isnan(k):
-            k_round = round(k) if k > 1 else k
-        else:
-            k_round = 1 if ma > 0 else 0
+    #     # If ma == 0, then std == 0. Hence CUSUM should not be restricted at all -> k_round = 0
+    #     # Otherwise k_round should be 1
+    #     if not np.isnan(k):
+    #         k_round = round(k) if k > 1 else k
+    #     else:
+    #         k_round = 1 if ma > 0 else 0
 
-    except (ValueError, OverflowError) as error:
-        # the first ValueError I encountered was due to ma=md=2.0 -> k = "0/0"
-        # OverflowError is due to k = inf
-        # print(error)
-        k_round = 1 if ma > 0 else 0
+    # except (ValueError, OverflowError) as error:
+    #     # the first ValueError I encountered was due to ma=md=2.0 -> k = "0/0"
+    #     # OverflowError is due to k = inf
+    #     # print(error)
+    #     k_round = 1 if ma > 0 else 0
+    k_round = k_classic(mu=ma, sigma=sigma, sigma_multiplier=sigma_multiplier)
 
     # Choose h, the variable dictating the "hastiness" of onset alert
     h = 2 if k_round>1 else 1

@@ -47,7 +47,7 @@ def k_classic(mu:float, sigma:float, sigma_multiplier:float) -> float:
     nominator = sigma_multiplier * sigma
     denominator = np.log(1 + nominator/mu)
 
-    return nominator/denominator
+    return np.round(nominator/denominator)
 
 
 def k_legacy(mu:float, sigma:float, sigma_multiplier:float) -> float:
