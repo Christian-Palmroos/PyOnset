@@ -103,7 +103,13 @@ def z_score(series:pd.Series, mu:float, sigma:float):
     Returns:
     z_score_series : {pd.Series} The z-standardized version of the input series.
     """
-    standard_values = (series.values - mu) / sigma
+
+    # z-score makes no sense with 0/0
+    if mu!=0 and sigma!=0:
+        standard_values = (series.values - mu) / sigma
+    else:
+        print("Warning! Z-score calculation impossible due to background mean = background standard deviation = 0.\nFalling back to simple intensity.")
+        standard_values = series.values
     return pd.Series(standard_values, index=series.index)
 
 
