@@ -36,6 +36,7 @@ def k_parameter(mu:float, sigma:float, sigma_multiplier:int|float) -> float:
 
     return (nominator/denominator) - (mu/sigma)
 
+
 def k_classic(mu:float, sigma:float, sigma_multiplier:float) -> float:
     """
     The classical k-parameters as defined in the classical Poisson-CUSUM
@@ -44,8 +45,9 @@ def k_classic(mu:float, sigma:float, sigma_multiplier:float) -> float:
         raise ValueError("sigma_multiplier may not be 0!")
 
     # Let's not divide by zero
-    if mu==0:
-        return 0
+    if not isinstance(mu, (list, np.ndarray)):
+        if mu==0:
+            return 0
 
     nominator = sigma_multiplier * sigma
     denominator = np.log(1 + nominator/mu)
@@ -61,8 +63,9 @@ def k_legacy(mu:float, sigma:float, sigma_multiplier:float) -> float:
         raise ValueError("sigma_multiplier may not be 0!")
 
     # Let's not divide by zero
-    if mu==0:
-        return 0
+    if not isinstance(mu, (list, np.ndarray)):
+        if mu==0:
+            return 0
 
     nominator = sigma_multiplier
     denominator = np.log(1 + (sigma_multiplier*sigma)/mu)
