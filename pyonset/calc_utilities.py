@@ -25,9 +25,8 @@ def k_parameter(mu:float, sigma:float, sigma_multiplier:int|float) -> float:
         raise ValueError("sigma_multiplier may not be 0!")
 
     # Let's not divide by zero
-    if isinstance(mu, float) and isinstance(sigma, float):
-        if mu==0 or sigma==0:
-            return 0
+    if mu==0 or sigma==0:
+        return 0
 
     nominator = sigma_multiplier
     denominator = np.log(1 + (sigma_multiplier*sigma)/mu)
