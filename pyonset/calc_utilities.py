@@ -24,9 +24,12 @@ def k_parameter(mu:float, sigma:float, sigma_multiplier:int|float) -> float:
     if sigma_multiplier == 0:
         raise ValueError("sigma_multiplier may not be 0!")
 
-    # Let's not divide by zero
-    if mu==0 or sigma==0:
-        return 0
+    # Let's not divide by zero.
+    # Only do this check if mu and sigma are singular values, numpy will take
+    # care of the cases with arrays.
+    if not isinstance(mu, (list, np.ndarray)):
+        if mu==0 or sigma==0:
+            return 0
 
     nominator = sigma_multiplier
     denominator = np.log(1 + (sigma_multiplier*sigma)/mu)
@@ -108,8 +111,12 @@ def z_score(series:pd.Series, mu:float, sigma:float):
     if mu!=0 and sigma!=0:
         standard_values = (series.values - mu) / sigma
     else:
-        print("Warning! Z-score calculation impossible due to background mean = background standard deviation = 0.\nFalling back to simple intensity.")
-        standard_values = series.values
+        print("Warning! Z-score calculation impossible due to background mean = background standard deviation = 0.\nFalling back to scaled intensity.")
+
+        # Find a value that makes sure that the intensity rise goes over unity instantly
+        scale_factor = np.reciprocal(np.nanmin(series.values))
+        standard_values = series.values * scale_factor
+
     return pd.Series(standard_values, index=series.index)
 
 
@@ -127,5 +134,9 @@ def sigma_norm(series:pd.Series, sigma:float) -> pd.Series:
     standard_series : {pd.Series} Intensity normalized to bg std.
     """
 
-    standard_values = series.values/sigma
+    if sigma!=0:
+        standard_values = series.values/sigma
+    else:
+        standard_values = series.values
+
     return pd.Series(standard_values, index=series.index)
