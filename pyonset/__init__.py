@@ -806,7 +806,19 @@ class Onset(Event):
 
             plt.show()
 
-        return onset_stats, flux_series
+        # Assemble a dictionary of return values:
+        onset_stats_dict = {}
+
+        onset_stats_dict["bg_mu"] = onset_stats[0]
+        onset_stats_dict["bu_mu_d"] = onset_stats[1]
+        onset_stats_dict["k_parameter"] = onset_stats[2]
+        onset_stats_dict["hastiness_threshold"] = onset_stats[3]
+        onset_stats_dict["ints_norm"] = onset_stats[4]
+        onset_stats_dict["cusum"] = onset_stats[5]
+        onset_stats_dict["onset_time"] = onset_stats[6]
+        onset_stats_dict["energy_string"] = en_channel_string
+
+        return onset_stats_dict, flux_series
 
 
     def cusum_plot(self, cusum:np.ndarray, h:int, background:BootstrapWindow, ax:plt.Axes, xlim:tuple|list=None,
@@ -1066,13 +1078,13 @@ class Onset(Event):
             # Generate a name for the fig
             else:
                 if self.spacecraft.lower() in ["bepicolombo", "bepi"]:
-                    plt.savefig(f"{savepath}{os.sep}{self.spacecraft}{self.sensor}_side{viewing}_{self.species}_{channel}_onset.png", transparent=False,
+                    plt.savefig(f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_side{viewing}_{self.species}_{channel}_onset.png", transparent=False,
                             facecolor="white", bbox_inches="tight")
                 elif self.viewing is not None:
-                    plt.savefig(f"{savepath}{os.sep}{self.spacecraft}{self.sensor}_{self.viewing.lower()}_{self.species}_{channel}_onset.png", transparent=False,
+                    plt.savefig(f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_{self.viewing.lower()}_{self.species}_{channel}_onset.png", transparent=False,
                             facecolor="white", bbox_inches="tight")
                 else:
-                    plt.savefig(f"{savepath}{os.sep}{self.spacecraft}{self.sensor}_{self.species}_{channel}_onset.png", transparent=False,
+                    plt.savefig(f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_{self.species}_{channel}_onset.png", transparent=False,
                             facecolor="white", bbox_inches="tight")
 
         plt.show()
