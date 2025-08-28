@@ -180,8 +180,9 @@ class BootstrapWindow:
         sigma = self.background_selection.std()
 
         # Initialize axis variables (mu & sigma)
-        mu_oom = order_of_magnitude(num=mu)
-        sigma_oom = order_of_magnitude(num=sigma)
+        # Check also that mu,sigma>0, because otherwise they don't have an order of magnitude
+        mu_oom = order_of_magnitude(num=mu) if mu>0 else 0
+        sigma_oom = order_of_magnitude(num=sigma) if sigma>0 else 0
         mus = np.logspace(mu_oom-KCONTOUR_OOM_PM, mu_oom+KCONTOUR_OOM_PM, num=1500)
         sigmas = np.logspace(sigma_oom-KCONTOUR_OOM_PM, sigma_oom+KCONTOUR_OOM_PM, num=1500)
 
