@@ -3168,11 +3168,12 @@ class Onset(Event):
                     # Initialize integration times only up to the amount of minutes that the first run had uncertainty
                     int_times = np.array([i for i in range(start_idx,first_run_uncertainty_mins+1)], dtype=int)
 
-                    if prints:
-                        if limit_averaging:
+                    if limit_averaging:
                             upto_averaging_display = limit_averaging_int if limit_averaging_int < first_run_uncertainty_mins else first_run_uncertainty_mins
-                        else:
-                            upto_averaging_display = first_run_uncertainty_mins
+                    else:
+                        upto_averaging_display = first_run_uncertainty_mins
+
+                    if prints:
                         print(f"Averaging up to {upto_averaging_display} minutes") if upto_averaging_display > 0 else print("Not averaging.")
 
             else:
