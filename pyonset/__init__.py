@@ -294,21 +294,22 @@ class Onset(Event):
             # return pd.Timedelta(self.data.index.freq)
             return pd.Timedelta(get_time_reso(self.data))
 
-    def get_time_resolution_str(self, resample):
-        # Choose resample as the averaging string if it exists
-        if resample:
-            time_reso_str = f"{resample} averaging" 
-        # If not, check if the native cadence is less than 60. If yes, address the cadence in seconds
-        elif self.get_minimum_cadence().seconds<60:
-            time_reso_str = f"{self.get_minimum_cadence().seconds} s data"
-        # If at least 60 seconds, address the cadence in minutes
-        else:
-            try:
-                time_reso_str = f"{int(self.get_minimum_cadence().seconds/60)} min data"
-            except ValueError:
-                time_reso_str = "Unidentified time resolution"
+    # Comment out, to be deleted in a later patch for redundancy.
+    # def get_time_resolution_str(self, resample):
+    #     # Choose resample as the averaging string if it exists
+    #     if resample:
+    #         time_reso_str = f"{resample} averaging" 
+    #     # If not, check if the native cadence is less than 60. If yes, address the cadence in seconds
+    #     elif self.get_minimum_cadence().seconds<60:
+    #         time_reso_str = f"{self.get_minimum_cadence().seconds} s data"
+    #     # If at least 60 seconds, address the cadence in minutes
+    #     else:
+    #         try:
+    #             time_reso_str = f"{int(self.get_minimum_cadence().seconds/60)} min data"
+    #         except ValueError:
+    #             time_reso_str = "Unidentified time resolution"
 
-        return time_reso_str
+    #     return time_reso_str
 
     def get_custom_channel_energies(self):
         """
@@ -338,10 +339,19 @@ class Onset(Event):
         if self.species in ["ion", 'i']:
             return "ions"
 
-    def _get_title(self, energy_str):
+    def _get_title(self, energy_str:str, time_resolution:str=None):
         """
         Generates the title string for an onset plot.
+
+        Parameters:
+        -----------
+        energy_str : {str}
+                    The energy string of the corresponding channel.
+        time_resolution : {str}, optional
+                    The time resolution of the data. Will be added in parentheses
+                    at the end of the title NOT on its own line.
         """
+
         sc_abbreviations_dict = {
             "sta" : "STEREO-A",
             "stb" : "STEREO-B",
@@ -382,8 +392,14 @@ class Onset(Event):
             if len(viewing)==1:
                 viewing = f"Sector {viewing}"
 
+        title_str = f"{spacecraft} / {sensor}$^{{\\mathrm{{{viewing}}}}}$\n{energy_str} {species}"
+
+        # Add the time resolution at the end of the title, if asked to
+        if isinstance(time_resolution, str):
+            title_str += f" ({time_resolution})"
+
         # Return the complete title str
-        return f"{spacecraft} / {sensor}$^{{\\mathrm{{{viewing}}}}}$\n{energy_str} {species}"
+        return title_str
 
     def add_bootstrap_window(self, window):
         """
@@ -720,13 +736,14 @@ class Onset(Event):
             # Setting the title
             if title is None:
 
-                if viewing:
-                    ax.set_title(f"{spacecraft}/{self.sensor.upper()} ({viewing}) {en_channel_string} {self.s_identifier}\n{time_reso} data", fontsize=TITLE_FONTSIZE)
-                else:
-                    ax.set_title(f"{spacecraft}/{self.sensor.upper()} {en_channel_string} {self.s_identifier}\n{time_reso} data", fontsize=TITLE_FONTSIZE)
+                title = self._get_title(energy_str=en_channel_string, time_resolution=time_reso)
+                # To be deleted in a later patch for redundancy
+                # if viewing:
+                #     ax.set_title(f"{spacecraft}/{self.sensor.upper()} ({viewing}) {en_channel_string} {self.s_identifier}\n{time_reso} data", fontsize=TITLE_FONTSIZE)
+                # else:
+                #     ax.set_title(f"{spacecraft}/{self.sensor.upper()} {en_channel_string} {self.s_identifier}\n{time_reso} data", fontsize=TITLE_FONTSIZE)
 
-            else:
-                ax.set_title(title, fontsize=TITLE_FONTSIZE)
+            ax.set_title(title, fontsize=TITLE_FONTSIZE)
 
             if diagnostics:
                 ax.legend(loc="best", fontsize=LEGEND_SIZE)
@@ -953,7 +970,7 @@ class Onset(Event):
 
 
     def final_onset_plot(self, channel, resample:str=None, xlim:tuple|list=None, ylim:tuple|list=None,
-                show_background:bool=True,
+                show_background:bool=True, peak:bool=False,
                 onset:str="mode", title:str=None, legend_loc:str="out",
                 savepath:str=None, save:bool=False, figname:str=None):
         """
@@ -967,17 +984,30 @@ class Onset(Event):
 
         Parameters:
         ----------
-        channel : {int|str} The channel identifier.
-        resample : {str} Pandas-compatible time string to time-average the inetsnity time series.
-        xlim : {tuple|list} A pair of datetime strings to set the horizontal boundaries of the plot.
-        ylim : {tuple|list} A pair of floating point numbers to set the vertical boundaries of the plot.
-        show_background : {bool} A switch to draw the background selection on the plot.
-        onset : {str} A switch to choose either 'mode' or 'median' onset of the analysis as the onset to display.
-        title : {str} Custom title.
-        legend_loc : {str} Legend location, either 'in' or 'out'.
-        savepath : {str} A path to save the figure.
-        save : {bool} A switch to save the figure.
-        figname : {str} A custom name for the figure if saved.
+        channel : {int,str} 
+                    The channel identifier.
+        resample : {str}, optional
+                    Pandas-compatible time string to time-average the inetsnity time series.
+        xlim : {tuple,list}, optional
+                    A pair of datetime strings to set the horizontal boundaries of the plot.
+        ylim : {tuple,list}, optional
+                    A pair of floating point numbers to set the vertical boundaries of the plot.
+        show_background : {bool}, optional
+                    A switch to draw the background selection on the plot.
+        peak : {bool}, optional
+                    kek
+        onset : {str}, optional
+                    A switch to choose either 'mode' or 'median' onset of the analysis as the onset to display.
+        title : {str}, optional
+                    A custom title.
+        legend_loc : {str}, optional
+                    The legend location, either 'in' or 'out'.
+        savepath : {str}, optional
+                    A path to save the figure.
+        save : {bool}, optional
+                    A switch to save the figure.
+        figname : {str}, optional
+                    A custom name for the figure if saved.
         """
 
         FRST_CONF_START = 2
