@@ -396,7 +396,7 @@ class Onset(Event):
 
         # Add the time resolution at the end of the title, if asked to
         if isinstance(time_resolution, str):
-            title_str += f" ({time_resolution})"
+            title_str += f" ({time_resolution} data)"
 
         # Return the complete title str
         return title_str
@@ -995,7 +995,9 @@ class Onset(Event):
         show_background : {bool}, optional
                     A switch to draw the background selection on the plot.
         peak : {bool}, optional
-                    kek
+                    A switch to find the peak intensity in the plot, display it with a vertical line,
+                    and add it's timestamp, value and (possible) time-averaging for which the peak intensity
+                    was found for.
         onset : {str}, optional
                     A switch to choose either 'mode' or 'median' onset of the analysis as the onset to display.
         title : {str}, optional
@@ -1018,6 +1020,8 @@ class Onset(Event):
         HM_FORMAT = DateFormatter("%H:%M")
         ONSETTIME_FORMAT = "%Y-%m-%d\n%H:%M:%S"
         HMINSEC_FORMAT = "%H:%M:%S"
+        DEFAULT_MINUS_OFFSET_HOURS = 5
+        DEFAULT_PLUS_ONSET_HOURS = 3
 
         if onset not in VALID_ONSET_OPTIONS:
             raise ValueError(f"parameter onset=={onset} when valid options are {VALID_ONSET_OPTIONS}.")
@@ -1027,6 +1031,12 @@ class Onset(Event):
         onset_time = self.onset_statistics[channel][onset_idx]
         conf_interval1_start, conf_interval1_end = self.onset_statistics[channel][FRST_CONF_START], self.onset_statistics[channel][FRST_CONF_END] 
         conf_interval2_start, conf_interval2_end = self.onset_statistics[channel][SCND_CONF_START], self.onset_statistics[channel][SCND_CONF_END]
+
+        # Define the boundaries of the plot:
+        if not isinstance(xlim, (tuple,list)):
+            xlim = (onset_time - pd.Timedelta(hours=DEFAULT_MINUS_OFFSET_HOURS), onset_time + pd.Timedelta(hours=DEFAULT_PLUS_ONSET_HOURS))
+        else:
+            xlim = (pd.to_datetime(xlim[0]), pd.to_datetime(xlim[1]))
 
         # Choose either custom data or standard to plot
         if self.custom_data:
@@ -1043,18 +1053,29 @@ class Onset(Event):
         if resample is None and self.spacecraft in FINE_CADENCE_SC:
             series = util.resample_df(series, "1 min")
 
-        # Creating the plot
+        # Time reoslution of the data is for the title
+        time_resolution = get_time_reso(series=series)
+
+        # After resampling, if peak is to be found it's found here:
+        if peak:
+
+            # First apply a selection to the data, to only consider the part of data that exists within
+            # the figure boundaries
+            intensity_in_plot = series.loc[(series.index>=xlim[0])&(series.index<=xlim[1])]
+            peak_intensity = intensity_in_plot.max()
+            peak_int_time = intensity_in_plot.idxmax()
+
+        # This is the maximum time-averaging that was used in the hybrid method to find the onset
+        max_avg_time = self.max_avg_times[channel]
+
+        # Creating the plot, and all the plotting related code ->
         fig, ax = plt.subplots(figsize=STANDARD_FIGSIZE)
 
         # Set the x-axis settings
         ax.xaxis_date()
         ax.set_xlabel(f"Time ({onset_time.date()})", fontsize=AXLABEL_FONTSIZE)
         ax.xaxis.set_major_formatter(HM_FORMAT)
-        if not isinstance(xlim, (tuple,list)):
-            xlim = (onset_time - pd.Timedelta(hours=5), onset_time + pd.Timedelta(hours=3))
-            ax.set_xlim(xlim)
-        else:
-            ax.set_xlim(pd.to_datetime(xlim[0]), pd.to_datetime(xlim[1]))
+        ax.set_xlim(xlim)
 
         # The y-axis settings:
         ax.set_yscale("log")
@@ -1082,18 +1103,21 @@ class Onset(Event):
                 background_shading = ax.patches[-1]
                 background_shading.set_label("_Background")
 
-        # Ticmarks, title and legend
+        # Create a textbox that shows the maximum averaging time
+        max_averaging_reso_textbox(max_avg_time, legend_loc=legend_loc, ax=ax)
+
+        # If peak was found, draw it on the plot and add it to the legend and textbox
+        if peak:
+            peak_int_label = f"Peak Intensity:\n{np.round(peak_intensity,2)}\n{peak_int_time.strftime('%Y-%m-%d\n%H:%M:%S')}"
+            ax.axvline(x=peak_int_time, color="navy", lw=2., label=peak_int_label)
+
+        # Finalize the plot with tickmarks, title and legend
         set_standard_ticks(ax=ax)
-
-        if title is None:
-            title =self._get_title(energy_str=en_channel_string)
-        ax.set_title(title, fontsize=TITLE_FONTSIZE)
-
         set_legend(ax=ax, legend_loc=legend_loc, fontsize=LEGEND_SIZE)
 
-        # Create a textbox that shows the maximum averaging time
-        max_avg_time = self.max_avg_times[channel]
-        max_averaging_reso_textbox(max_avg_time, legend_loc=legend_loc, ax=ax)
+        if title is None:
+            title =self._get_title(energy_str=en_channel_string, time_resolution=time_resolution)
+        ax.set_title(title, fontsize=TITLE_FONTSIZE)
 
         # Saving the figure
         if save:
@@ -1101,22 +1125,27 @@ class Onset(Event):
             if savepath is None:
                 savepath = CURRENT_PATH
 
-            # Custom name if provided
-            if isinstance(figname,str):
-                fig.savefig(fname=f"{savepath}{os.sep}{figname}", facecolor="white", 
-                            transparent=False, bbox_inches="tight")
-            # Generate a name for the fig
-            else:
+            # Generate a name for the fig IF custom name was not provided
+            if not isinstance(figname,str):
                 if self.spacecraft.lower() in ["bepicolombo", "bepi"]:
-                    plt.savefig(f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_side{viewing}_{self.species}_{channel}_onset.png", transparent=False,
-                            facecolor="white", bbox_inches="tight")
+                    figname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_side{viewing}_{self.species}_{channel}_onset.png"
                 elif self.viewing is not None:
-                    plt.savefig(f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_{self.viewing.lower()}_{self.species}_{channel}_onset.png", transparent=False,
-                            facecolor="white", bbox_inches="tight")
+                    figname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_{self.viewing.lower()}_{self.species}_{channel}_onset.png"
                 else:
-                    plt.savefig(f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_{self.species}_{channel}_onset.png", transparent=False,
-                            facecolor="white", bbox_inches="tight")
+                    figname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_{self.species}_{channel}_onset.png"
 
+                # If peak was found, add to the figname
+                if peak:
+                    figname += "peak"
+                # If resampling was applied, add it to the end of the figname
+                if resample is not None:
+                    figname += resample
+
+            # Save the figure:
+            fig.savefig(fname=f"{savepath}{os.sep}{figname}", facecolor="white", 
+                            transparent=False, bbox_inches="tight")
+
+        # Finally show the plot
         plt.show()
 
 
