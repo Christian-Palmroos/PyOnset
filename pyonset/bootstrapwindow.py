@@ -153,20 +153,25 @@ class BootstrapWindow:
 
         return True
 
-    def k_contour(self, n_sigma:int, cmap:str=None, fig:plt.Figure=None, ax:plt.Axes=None,
+    def k_contour(self, sigma_multiplier:int, cmap:str=None, fig:plt.Figure=None, ax:plt.Axes=None,
                   k_model:str=None):
         """
         Draws a k-contour plot as a function of background 
 
         Parameters:
         -----------
-        n_sigma : {int}
+        sigma_multiplier : {int}
         cmap : {str} Name of the colormap
         fig : {plt.Figure}
         ax : {plt.Axes}
         k_model : {Callable,str} The model that calculates k. Either a function or
                     the string 'legacy'.
         """
+
+        KCONTOUR_LOW_LIMIT = 1e-1
+        KCONTOUR_HIGH_LIMIT = 1e1
+
+        KCONTOUR_OOM_PM = 2
 
         def order_of_magnitude(num):
             return np.floor(np.log10(num))
@@ -177,21 +182,23 @@ class BootstrapWindow:
         # Initialize axis variables (mu & sigma)
         mu_oom = order_of_magnitude(num=mu)
         sigma_oom = order_of_magnitude(num=sigma)
-        mus = np.logspace(mu_oom-2, mu_oom+2, num=500)
-        sigmas = np.logspace(sigma_oom-2, sigma_oom+2, num=500)
+        mus = np.logspace(mu_oom-KCONTOUR_OOM_PM, mu_oom+KCONTOUR_OOM_PM, num=1500)
+        sigmas = np.logspace(sigma_oom-KCONTOUR_OOM_PM, sigma_oom+KCONTOUR_OOM_PM, num=1500)
 
         # The meshgrid to use in plotting
         xx, yy = np.meshgrid(mus, sigmas)
 
+        # By default we use the k_parameter that is defined as a part of this software. If
+        # user inputs the word 'legacy', then the old SEPpy version of the k-parameter is used.
+        # Otherwise the user inputs a callable function for the k-parameter with identical 
+        # signature to the standard k-parameter.
         if k_model is None:
             k_model = k_parameter
-        elif k_model=="legacy":
+        if k_model=="legacy":
             k_model = k_legacy
-        else:
-            pass
 
-        ks = k_model(mu=xx, sigma=yy, sigma_multiplier=n_sigma)
-        user_k = k_model(mu=mu, sigma=sigma, sigma_multiplier=n_sigma)
+        ks = k_model(mu=xx, sigma=yy, sigma_multiplier=sigma_multiplier)
+        user_k = k_model(mu=mu, sigma=sigma, sigma_multiplier=sigma_multiplier)
 
         if cmap is None:
             cmap = DEFAULT_KCONTOUR_CMAP
@@ -205,14 +212,14 @@ class BootstrapWindow:
         else:
             ax_provided = True
 
-        ax.set_title(fr"k as a function of background $\mu$ and $\sigma$ (n={n_sigma})", fontsize=KCONTOUR_TITLESIZE)
+        ax.set_title(fr"k as a function of background $\mu$ and $\sigma$ (n={sigma_multiplier})", fontsize=KCONTOUR_TITLESIZE)
 
         ax.set_yscale("log")
         ax.set_xscale("log")
 
         # Plotting
-        ks_lognorm = cl.LogNorm(vmin=1e-1, vmax=2.5e1) # vmax=ks.max()
-        kesh = ax.pcolormesh(mus, sigmas, ks, shading="nearest", rasterized=True, cmap=colormap,
+        ks_lognorm = cl.LogNorm(vmin=KCONTOUR_LOW_LIMIT, vmax=KCONTOUR_HIGH_LIMIT)
+        kesh = ax.pcolormesh(mus, sigmas, ks, shading="nearest", cmap=colormap,
                             norm = ks_lognorm)
 
         # The colorbar for k values
@@ -228,8 +235,8 @@ class BootstrapWindow:
         # Plotting user mu and sigma
         ax.scatter(mu, sigma, s=125, color='k')
         ax.scatter(mu, sigma, s=85, color="orange",
-                   label=fr"$\mu={mu:.3e}$"+"\n"+fr"$\sigma={sigma:.3e}$"+"\n"+f"k={user_k:.2f}")
-        
+                label=fr"$\mu={mu:.3e}$"+"\n"+fr"$\sigma={sigma:.3e}$"+"\n"+f"k={user_k:.2f}")
+
         ax.set_ylabel(r"$\sigma$", fontsize=24)
         ax.set_xlabel(r"$\mu$", fontsize=24)
 
