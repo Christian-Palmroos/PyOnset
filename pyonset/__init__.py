@@ -755,23 +755,19 @@ class Onset(Event):
                 if savepath is None:
                     savepath = CURRENT_PATH
 
-                # A custom name for the figure
-                if fname is not None:
-                    fig.savefig(fname=f"{savepath}{os.sep}{fname}",
-                                facecolor="white", transparent=False, bbox_inches="tight")
-
-                # Use a default name for the figure
-                else:
+                # Use a default name for the figure if custom name was not provided
+                if not isinstance(fname, str):
 
                     if spacecraft.lower() in ["bepicolombo", "bepi"]:
-                        plt.savefig(f"{savepath}{os.sep}{self.spacecraft}{self.sensor}_side{viewing}_{self.species}_{channels}_onset.png", transparent=False,
-                                facecolor='white', bbox_inches='tight')
+                        fname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_side{viewing}_{self.species}_{channels}_onset.png"
                     elif viewing != "" and viewing is not None:
-                        plt.savefig(f"{savepath}{os.sep}{self.spacecraft}{self.sensor}_{viewing.lower()}_{self.species}_{channels}_onset.png", transparent=False,
-                                facecolor='white', bbox_inches='tight')
+                        fname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_{viewing.lower()}_{self.species}_{channels}_onset.png"
                     else:
-                        plt.savefig(f"{savepath}{os.sep}{self.spacecraft}{self.sensor}_{self.species}_{channels[:]}_onset.png", transparent=False,
-                                facecolor='white', bbox_inches='tight')
+                        fname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_{self.species}_{channels[:]}_onset.png"
+
+                # Saves the figure
+                fig.savefig(fname=f"{savepath}{os.sep}{fname}",
+                                facecolor="white", transparent=False, bbox_inches="tight")
 
             # Run additional diagnostic tools -> Add two subplots displaying the z-standardized intensity
             # time series (with k) and a heatmap displaying k as a function of bg mu and sigma.
@@ -794,7 +790,7 @@ class Onset(Event):
                                 xlim=xlim)
 
                 # Plotting the k-contour
-                k_cb = background_range.k_contour(n_sigma=sigma_multiplier, fig=fig, ax=k_ax, k_model=k_model)
+                k_cb = background_range.k_contour(sigma_multiplier=sigma_multiplier, fig=fig, ax=k_ax, k_model=k_model)
 
                 offset_down_z = 0.71
                 zc_height_increment = 0.03
