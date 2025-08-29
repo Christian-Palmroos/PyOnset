@@ -2306,7 +2306,7 @@ class Onset(Event):
         else:
             e_min, e_max = self.get_custom_channel_energies()
 
-         # Initialize the list of channels according to the sc and instrument used
+        # Initialize the list of channels according to the sc and instrument used
         channels = self.get_all_channels()
 
         # SOHO /EPHIN really has only 4 active channels, but 5th one still exists, causing an erroneous amount
@@ -2358,7 +2358,7 @@ class Onset(Event):
 
             nominal_energies1 = calc_chnl_nominal_energy(e_min1, e_max1, mode=energy)
 
-             # Check here if onset_times were given as an input. If not, use median/mode onset times and yerrs.
+            # Check here if onset_times were given as an input. If not, use median/mode onset times and yerrs.
             if len(onset_times) == 2 and isinstance(onset_times[0], (list,tuple, np.ndarray)):
 
                 onset_times1 = pd.to_datetime(onset_times[1])
@@ -2761,7 +2761,7 @@ class Onset(Event):
         # The .compressed() -method here ensures that only the valid values of the masked arrays are fed into the function. If this is not
         # done, then all of the values that the function yields will be nan.
         odr_output = seek_fit_and_errors(x=inverse_beta_corrected.compressed(), y=date_in_sec_all.compressed(), 
-                                         xerr=x_errors_all.compressed(), yerr=y_errors_all_secs.compressed(), guess=guess)
+                                        xerr=x_errors_all.compressed(), yerr=y_errors_all_secs.compressed(), guess=guess)
         
         # This would print out the output
         # odr_output.pprint()
@@ -2793,7 +2793,7 @@ class Onset(Event):
         release_time = datetime.datetime.utcfromtimestamp(constant)
 
         # Precision of t_inj display:
-        precision = 5 if spacecraft not in ("solo","wind") else 8
+        precision = 5 if spacecraft not in FINE_CADENCE_SC else 8
         rel_time_str =str(release_time.time())[:precision]
 
         date_of_event = get_figdate(onset_times_all.compressed())
@@ -2812,7 +2812,7 @@ class Onset(Event):
                 "t_inj_uncertainty" : t_inj_uncertainty,
                 "residual_variance" : residual_variance,  # The unexplained variance of the data according to the model
                 "stopreason" : stopreason
-                 }
+                }
 
         # Only plotting commands from here onward->
         if plot:
@@ -2839,10 +2839,33 @@ class Onset(Event):
                 onset_times = onset_times[selection]
                 x_errors_lower = x_errors_lower[selection]
                 x_errors_upper = x_errors_upper[selection]
-                y_errors_plot = y_errors_plot.compressed()
+                
+                # Compressing changes the shape of y_errors_plot. This has unintended consequences.
+                # Lets instead try array.filled(np.nan), to fill in the invalid values with nan.
+                # y_errors_plot = y_errors_plot.compressed()
+                y_errors_plot = y_errors_plot.filled(np.nan)
+
+                # Asymmetric y-errors
                 if len(y_errors_plot)==2:
-                    y_errors_plot[0] = y_errors_plot[0][selection]
-                    y_errors_plot[1] = y_errors_plot[1][selection]
+
+                    # y_errors_plot[0] = y_errors_plot[0][selection]
+                    # y_errors_plot[1] = y_errors_plot[1][selection]
+                    # Let's make an ugly implementation here via a temp array, because the old
+                    # implementation (above) does not really work.
+                    num_valids = len(inverse_beta)
+
+                    tmp = np.empty(shape=(2,num_valids), dtype=pd.Timedelta)
+                    for i in range(len(y_errors_plot)):
+
+                        for j in range(len(y_errors_plot[i])):
+
+                            if isinstance(y_errors_plot[i,j], pd.Timedelta):
+                                tmp[i,j] = y_errors_plot[i,j]
+
+                    # Lastly save tmp onto the old y_errors_plot
+                    y_errors_plot = tmp
+
+                # Symmetric y-errors
                 else:
                     y_errors_plot = y_errors_plot[selection]
 
@@ -3796,11 +3819,11 @@ def get_x_errors(e_min, e_max, inverse_betas, mass_energy:float):
 
         Returns:
         -----------
-        x_errors_lower : tuple
+        x_errors_lower : np.ndarray
                     The lower boundaries of energy channels in terms of inverse beta
-        x_errors_upper : tuple
+        x_errors_upper : np.ndarray
                     The higher boundaries of energy channels in terms of inverse beta
-        x_errors : tuple
+        x_errors : np.ndarray
                     The widths of energy channels in terms of 1/beta
         """
 
@@ -3823,7 +3846,7 @@ def get_x_errors(e_min, e_max, inverse_betas, mass_energy:float):
 
         x_errors = [x-x_errors_upper[i] for i, x in enumerate(x_errors_lower)]
 
-        return x_errors_lower, x_errors_upper, x_errors
+        return np.array(x_errors_lower), np.array(x_errors_upper), np.array(x_errors)
 
 
 def get_time_errors(onset_times, spacecraft):
