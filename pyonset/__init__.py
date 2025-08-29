@@ -2855,15 +2855,15 @@ class Onset(Event):
                     num_valids = len(inverse_beta)
 
                     tmp = np.empty(shape=(2,num_valids), dtype=pd.Timedelta)
-                    for i in range(len(y_errors_plot)):
 
-                        for j in range(len(y_errors_plot[i])):
+                    tmp[0] = y_errors_plot[0][selection]
+                    tmp[1] = y_errors_plot[1][selection]
 
-                            if isinstance(y_errors_plot[i,j], pd.Timedelta):
-                                tmp[i,j] = y_errors_plot[i,j]
-
-                    # Lastly save tmp onto the old y_errors_plot
-                    y_errors_plot = tmp
+                    # Lastly save tmp onto the old y_errors_plot while transforming possible
+                    # nans to pd.NaTs, to make invalid values compatible with other datetime values.
+                    # Logic: choose elements which are NOT notna (= not nan = timedeltas), replace
+                    # those with pd.NaT and let the rest be as they are.
+                    y_errors_plot = np.where(~pd.notna(tmp), pd.NaT, tmp)
 
                 # Symmetric y-errors
                 else:
