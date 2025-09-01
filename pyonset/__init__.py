@@ -1119,7 +1119,7 @@ class Onset(Event):
 
         # If peak was found, draw it on the plot and add it to the legend and textbox
         if peak:
-            peak_int_label = f"Peak Intensity:{NEWLINE}{np.round(peak_intensity,2)}{NEWLINE}{peak_int_time.strftime('%Y-%m-%d\n%H:%M:%S')}"
+            peak_int_label = f"Peak Intensity:{NEWLINE}{peak_intensity:.2f}{NEWLINE}{peak_int_time.strftime('%Y-%m-%d\n%H:%M:%S')}"
             ax.axvline(x=peak_int_time, color="navy", lw=2., label=peak_int_label)
 
             # Add peak info to the dictionary
