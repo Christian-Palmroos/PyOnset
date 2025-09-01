@@ -89,6 +89,9 @@ CUSUM_WINDOW_RESOLUTION_MULTIPLIERS = (4,8,16,32)
 # A fine cadence is less than 1 minute -> requires computation time
 FINE_CADENCE_SC = ("solo", "wind")
 
+# Save newline character to a constant to use 
+# in f-strings with older python versions
+NEWLINE = "\n"
 
 # A new class to inherit everything from serpentine Event, and to extend its scope of functionality
 class Onset(Event):
@@ -392,7 +395,7 @@ class Onset(Event):
             if len(viewing)==1:
                 viewing = f"Sector {viewing}"
 
-        title_str = f"{spacecraft} / {sensor}$^{{\\mathrm{{{viewing}}}}}$\n{energy_str} {species}"
+        title_str = f"{spacecraft} / {sensor}$^{{\\mathrm{{{viewing}}}}}${NEWLINE}{energy_str} {species}"
 
         # Add the time resolution at the end of the title, if asked to
         if isinstance(time_resolution, str):
@@ -639,7 +642,7 @@ class Onset(Event):
         if diagnostics:
             print(f"Cusum_window, {cusum_minutes} minutes = {cusum_window} datapoints")
             print(f"onset time: {onset_stats[-1]}")
-            print(f"mu and sigma of background intensity: \n{background_stats[0]:.3e}, {background_stats[1]:.3e}")
+            print(f"mu and sigma of background intensity: {NEWLINE}{background_stats[0]:.3e}, {background_stats[1]:.3e}")
 
         # --Only plotting related code from this line onward ->
 
@@ -665,7 +668,7 @@ class Onset(Event):
                 # Check if background is separated from plot range by over a day, issue a warning if so, but don't
                 if (background_start < xlim[0] - datetime.timedelta(days=1) and background_start < xlim[1] - datetime.timedelta(days=1)) or \
                 (background_end > xlim[0] + datetime.timedelta(days=1) and background_end > xlim[1] + datetime.timedelta(days=1)):
-                    background_warning = "NOTICE that your background_range is separated from plot_range by over a day.\nIf this was intentional you may ignore this warning."
+                    background_warning = f"NOTICE that your background_range is separated from plot_range by over a day.{NEWLINE}If this was intentional you may ignore this warning."
                     warnings.warn(message=background_warning)
 
             # Figure limits and scale
@@ -730,7 +733,7 @@ class Onset(Event):
             ax.xaxis_date()
             set_standard_ticks(ax=ax)
 
-            utc_dt_format1 = DateFormatter('%H:%M \n%m-%d')
+            utc_dt_format1 = DateFormatter(f'%H:%M {NEWLINE}%m-%d')
             ax.xaxis.set_major_formatter(utc_dt_format1)
 
             # Setting the title
@@ -1082,13 +1085,13 @@ class Onset(Event):
         ax.step(series.index, series.values, color="tab:blue",   where="mid")
 
         # Onset time and confidence intervals:
-        ax.axvline(x=onset_time, color="red", zorder=5, label=f"Onset time:\n{onset_time.strftime(ONSETTIME_FORMAT)}")
+        ax.axvline(x=onset_time, color="red", zorder=5, label=f"Onset time:{NEWLINE}{onset_time.strftime(ONSETTIME_FORMAT)}")
         ax.axvspan(xmin=conf_interval1_start, xmax=conf_interval1_end, 
                     color=COLOR_SCHEME["1-sigma"], zorder=2, alpha=.3,
-                    label=f"~68 % confidence\n{conf_interval1_start.strftime(HMINSEC_FORMAT)}-{conf_interval1_end.strftime(HMINSEC_FORMAT)}")
+                    label=f"~68 % confidence{NEWLINE}{conf_interval1_start.strftime(HMINSEC_FORMAT)}-{conf_interval1_end.strftime(HMINSEC_FORMAT)}")
         ax.axvspan(xmin=conf_interval2_start, xmax=conf_interval2_end, 
                     color=COLOR_SCHEME["2-sigma"], zorder=1, alpha=.3,
-                    label=f"~95 % confidence\n{conf_interval2_start.strftime(HMINSEC_FORMAT)}-{conf_interval2_end.strftime(HMINSEC_FORMAT)}")
+                    label=f"~95 % confidence{NEWLINE}{conf_interval2_start.strftime(HMINSEC_FORMAT)}-{conf_interval2_end.strftime(HMINSEC_FORMAT)}")
 
         # Shade the background only if asked to and if it overlaps with the plot boundaries
         if show_background:
@@ -1104,7 +1107,7 @@ class Onset(Event):
 
         # If peak was found, draw it on the plot and add it to the legend and textbox
         if peak:
-            peak_int_label = f"Peak Intensity:\n{np.round(peak_intensity,2)}\n{peak_int_time.strftime('%Y-%m-%d\n%H:%M:%S')}"
+            peak_int_label = f"Peak Intensity:{NEWLINE}{np.round(peak_intensity,2)}{NEWLINE}{peak_int_time.strftime('%Y-%m-%d{NEWLINE}%H:%M:%S')}"
             ax.axvline(x=peak_int_time, color="navy", lw=2., label=peak_int_label)
 
         # Finalize the plot with tickmarks, title and legend
@@ -1236,7 +1239,7 @@ class Onset(Event):
         # Date tick locator and formatter
         ax.xaxis_date()
         #ax.xaxis.set_major_locator(ticker.AutoLocator()) # ticker.MaxNLocator(9)
-        utc_dt_format1 = DateFormatter('%H:%M \n%Y-%m-%d')
+        utc_dt_format1 = DateFormatter(f'%H:%M {NEWLINE}%Y-%m-%d')
         ax.xaxis.set_major_formatter(utc_dt_format1)
 
         ax.legend(loc=3, bbox_to_anchor=(1.0, 0.01), prop={'size': 16})
@@ -1248,11 +1251,11 @@ class Onset(Event):
             s_identifier = self._get_species_identifier()
 
             if viewing:
-                ax.set_title(f"{self.spacecraft.upper()}/{self.sensor.upper()} {s_identifier}\n"
+                ax.set_title(f"{self.spacecraft.upper()}/{self.sensor.upper()} {s_identifier}{NEWLINE}"
                         f"{resample} averaging, viewing: "
                         f"{viewing.upper()}", fontsize=TITLE_FONTSIZE)
             else:
-                ax.set_title(f"{self.spacecraft.upper()}/{self.sensor.upper()} {s_identifier}\n"
+                ax.set_title(f"{self.spacecraft.upper()}/{self.sensor.upper()} {s_identifier}{NEWLINE}"
                         f"{resample} averaging", fontsize=TITLE_FONTSIZE)
         
         else:
@@ -1651,7 +1654,7 @@ class Onset(Event):
         set_standard_ticks(ax=ax)
         ax.xaxis_date()
         ax.xaxis.set_major_locator(ticker.AutoLocator())
-        utc_dt_format1 = DateFormatter('%H:%M \n%m-%d')
+        utc_dt_format1 = DateFormatter(f'%H:%M {NEWLINE}%m-%d')
         ax.xaxis.set_major_formatter(utc_dt_format1)
 
 
@@ -1746,7 +1749,7 @@ class Onset(Event):
         set_standard_ticks(ax=ax)
         ax.xaxis_date()
         ax.xaxis.set_major_locator(ticker.AutoLocator())
-        utc_dt_format1 = DateFormatter('%H:%M \n%m-%d')
+        utc_dt_format1 = DateFormatter(f'%H:%M {NEWLINE}%m-%d')
         ax.xaxis.set_major_formatter(utc_dt_format1)
 
         ax.legend()
@@ -2910,7 +2913,7 @@ class Onset(Event):
             # The odr fit
             # Here we need to first take the selection of i_beta_all and ONLY after that take the compressed form, which is the set of valid values
             ax.plot(inverse_beta_all[selection_all].compressed(), odr_fit, ls='--',
-                label=f"L: {np.round(slope,3):.3f} $\\pm$ {np.round(slope_uncertainty,3):.3f} AU\nt_inj: {rel_time_str} $\\pm$ {str(t_inj_uncertainty)[7:]}")
+                label=f"L: {np.round(slope,3):.3f} $\\pm$ {np.round(slope_uncertainty,3):.3f} AU{NEWLINE}t_inj: {rel_time_str} $\\pm$ {str(t_inj_uncertainty)[7:]}")
 
             ax.set_xlabel(r"1/$\beta$", fontsize = AXLABEL_FONTSIZE)
 
@@ -2949,11 +2952,11 @@ class Onset(Event):
                     else:
                         # In this case these are two different spacecraft
                         if self.viewing and Onset.viewing:
-                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument_species_id} ({self.viewing}) + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}({Onset.viewing})\n{species_title1}, {date_of_event}", fontsize=TITLE_FONTSIZE)
+                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument_species_id} ({self.viewing}) + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}({Onset.viewing}){NEWLINE}{species_title1}, {date_of_event}", fontsize=TITLE_FONTSIZE)
                         elif self.viewing:
-                            ax.set_title(f"VDA, {spacecraft.upper()}/{self.sensor} ({self.viewing}) {species_title} + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}\n{species_title1}, {date_of_event}", fontsize=TITLE_FONTSIZE)
+                            ax.set_title(f"VDA, {spacecraft.upper()}/{self.sensor} ({self.viewing}) {species_title} + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}{NEWLINE}{species_title1}, {date_of_event}", fontsize=TITLE_FONTSIZE)
                         elif Onset.viewing:
-                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument_species_id} + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}({Onset.viewing})\n{species_title1}, {date_of_event}", fontsize=TITLE_FONTSIZE)
+                            ax.set_title(f"VDA, {spacecraft.upper()}/{instrument_species_id} + {Onset.spacecraft.upper()}/{Onset.sensor.upper()}({Onset.viewing}){NEWLINE}{species_title1}, {date_of_event}", fontsize=TITLE_FONTSIZE)
                         else:
                             ax.set_title(f"VDA, {spacecraft.upper()}/{instrument_species_id} + {Onset.spacecraft.upper()}/{Onset.sensor.upper()} {species_title1}, {date_of_event}", fontsize=TITLE_FONTSIZE)
 
@@ -3505,7 +3508,7 @@ class Onset(Event):
                     label="First maximum peak")
 
         # Textbox settings:
-        plabel = AnchoredText(f"First maximum peak time+value\n{first_maximum_peak_time}\n{first_maximum_peak_val}", prop=dict(size=13), frameon=True, loc=(4) )
+        plabel = AnchoredText(f"First maximum peak time+value{NEWLINE}{first_maximum_peak_time}{NEWLINE}{first_maximum_peak_val}", prop=dict(size=13), frameon=True, loc=(4) )
         plabel.patch.set_boxstyle("round, pad=0., rounding_size=0.2")
         plabel.patch.set_linewidth(2.0)
         ax.add_artist(plabel)
@@ -3520,7 +3523,7 @@ class Onset(Event):
 
         # Date tick locator and formatter
         ax.xaxis_date()
-        utc_dt_format1 = DateFormatter('%H:%M \n%Y-%m-%d')
+        utc_dt_format1 = DateFormatter('%H:%M {NEWLINE}%Y-%m-%d')
         ax.xaxis.set_major_formatter(utc_dt_format1)
 
         # Setting the title
@@ -3533,13 +3536,13 @@ class Onset(Event):
 
         if (viewing != '' and viewing is not None):
 
-            plt.title(f"{self.spacecraft}/{self.sensor.upper()} {en_channel_string} {s_identifier}\n"
+            plt.title(f"{self.spacecraft}/{self.sensor.upper()} {en_channel_string} {s_identifier}{NEWLINE}"
                     f"{resample} averaging, viewing: "
                     f"{viewing.upper()}")
 
         else:
 
-            plt.title(f"{self.spacecraft}/{self.sensor.upper()} {en_channel_string} {s_identifier}\n"
+            plt.title(f"{self.spacecraft}/{self.sensor.upper()} {en_channel_string} {s_identifier}{NEWLINE}"
                     f"{resample} averaging")
 
         if plot:
@@ -4417,7 +4420,7 @@ def bootstrap_mus_and_sigmas(flux_series, window_start, window_end, n_bstraps, s
         # Print out a warning if the amount of datapoints in a window is less than 100
         # This is done ONLY IF no sample size is provided
         if len(window)<100:
-            print(f"Warning! The ensemble of background values is {len(window)}<100. \nRaising sample size to 75 %.")
+            print(f"Warning! The ensemble of background values is {len(window)}<100. {NEWLINE}Raising sample size to 75 %.")
             sample_size = int(3*len(window)/4)
 
     # if sample_size is not None, check that it's a reasonable value
