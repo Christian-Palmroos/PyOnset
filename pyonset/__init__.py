@@ -971,7 +971,7 @@ class Onset(Event):
     def final_onset_plot(self, channel, resample:str=None, xlim:tuple|list=None, ylim:tuple|list=None,
                 show_background:bool=True, peak:bool=False,
                 onset:str="mode", title:str=None, legend_loc:str="out",
-                savepath:str=None, save:bool=False, figname:str=None):
+                savepath:str=None, save:bool=False, figname:str=None) -> dict:
         """
         Produces the 'final' plot that showcases the intensity time series, the onset time and its 
         confidence intervals and the background selection.
@@ -1009,6 +1009,12 @@ class Onset(Event):
                     A switch to save the figure.
         figname : {str}, optional
                     A custom name for the figure if saved.
+
+        Returns:
+        ---------
+        event_dict : {dict} Contains 'onset_time', 'confidence_interval1', 
+                            'confidence_interval2', 'peak_intensity', 'peak_time',
+                            'max_averaging'
         """
 
         FRST_CONF_START = 2
@@ -1031,6 +1037,11 @@ class Onset(Event):
         conf_interval1_start, conf_interval1_end = self.onset_statistics[channel][FRST_CONF_START], self.onset_statistics[channel][FRST_CONF_END] 
         conf_interval2_start, conf_interval2_end = self.onset_statistics[channel][SCND_CONF_START], self.onset_statistics[channel][SCND_CONF_END]
 
+        event_dict = {
+            "onset_time" : onset_time,
+            "confidence_interval1" : [conf_interval1_start, conf_interval1_end],
+            "confidence_interval2" : [conf_interval2_start, conf_interval2_end]
+        }
         # Define the boundaries of the plot:
         if not isinstance(xlim, (tuple,list)):
             xlim = (onset_time - pd.Timedelta(hours=DEFAULT_MINUS_OFFSET_HOURS), onset_time + pd.Timedelta(hours=DEFAULT_PLUS_ONSET_HOURS))
@@ -1066,6 +1077,7 @@ class Onset(Event):
 
         # This is the maximum time-averaging that was used in the hybrid method to find the onset
         max_avg_time = self.max_avg_times[channel]
+        event_dict["max_averaging"] = max_avg_time
 
         # Creating the plot, and all the plotting related code ->
         fig, ax = plt.subplots(figsize=STANDARD_FIGSIZE)
@@ -1107,8 +1119,12 @@ class Onset(Event):
 
         # If peak was found, draw it on the plot and add it to the legend and textbox
         if peak:
-            peak_int_label = f"Peak Intensity:{NEWLINE}{np.round(peak_intensity,2)}{NEWLINE}{peak_int_time.strftime('%Y-%m-%d{NEWLINE}%H:%M:%S')}"
+            peak_int_label = f"Peak Intensity:{NEWLINE}{np.round(peak_intensity,2)}{NEWLINE}{peak_int_time.strftime('%Y-%m-%d\n%H:%M:%S')}"
             ax.axvline(x=peak_int_time, color="navy", lw=2., label=peak_int_label)
+
+            # Add peak info to the dictionary
+            event_dict["peak_intensity"] = peak_intensity
+            event_dict["peak_time"] = peak_int_time
 
         # Finalize the plot with tickmarks, title and legend
         set_standard_ticks(ax=ax)
@@ -1146,6 +1162,8 @@ class Onset(Event):
 
         # Finally show the plot
         plt.show()
+
+        return event_dict
 
 
     def plot_all_channels(self, viewing:str=None, resample:str=None, omit:list=None, cmap:str="twilight_shifted", xlim=None, title:str=None,
