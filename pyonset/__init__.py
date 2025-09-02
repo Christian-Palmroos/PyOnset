@@ -1042,11 +1042,6 @@ class Onset(Event):
             "confidence_interval1" : [conf_interval1_start, conf_interval1_end],
             "confidence_interval2" : [conf_interval2_start, conf_interval2_end]
         }
-        # Define the boundaries of the plot:
-        if not isinstance(xlim, (tuple,list)):
-            xlim = (onset_time - pd.Timedelta(hours=DEFAULT_MINUS_OFFSET_HOURS), onset_time + pd.Timedelta(hours=DEFAULT_PLUS_ONSET_HOURS))
-        else:
-            xlim = (pd.to_datetime(xlim[0]), pd.to_datetime(xlim[1]))
 
         # Choose either custom data or standard to plot
         if self.custom_data:
@@ -1063,7 +1058,18 @@ class Onset(Event):
         if resample is None and self.spacecraft in FINE_CADENCE_SC:
             series = util.resample_df(series, "1 min")
 
-        # Time reoslution of the data is for the title
+        # Define the boundaries of the plot. First setting is valid only if xlim was not given (not a tuple nor a list)
+        # and if onset_time is a legit Timestamp (not a pd.NaT).
+        if not isinstance(xlim, (tuple,list)):
+
+            if not isinstance(onset_time, pd._libs.tslibs.nattype.NaTType):
+                xlim = (onset_time - pd.Timedelta(hours=DEFAULT_MINUS_OFFSET_HOURS), onset_time + pd.Timedelta(hours=DEFAULT_PLUS_ONSET_HOURS))
+            else:
+                xlim = (series.index[0], series.index[-1])
+        else:
+            xlim = (pd.to_datetime(xlim[0]), pd.to_datetime(xlim[1]))
+
+        # Time resolution of the data is for the title
         time_resolution = get_time_reso(series=series)
 
         # After resampling, if peak is to be found it's found here:
@@ -1097,13 +1103,14 @@ class Onset(Event):
         ax.step(series.index, series.values, color="tab:blue",   where="mid")
 
         # Onset time and confidence intervals:
-        ax.axvline(x=onset_time, color="red", zorder=5, label=f"Onset time:{NEWLINE}{onset_time.strftime(ONSETTIME_FORMAT)}")
-        ax.axvspan(xmin=conf_interval1_start, xmax=conf_interval1_end, 
-                    color=COLOR_SCHEME["1-sigma"], zorder=2, alpha=.3,
-                    label=f"~68 % confidence{NEWLINE}{conf_interval1_start.strftime(HMINSEC_FORMAT)}-{conf_interval1_end.strftime(HMINSEC_FORMAT)}")
-        ax.axvspan(xmin=conf_interval2_start, xmax=conf_interval2_end, 
-                    color=COLOR_SCHEME["2-sigma"], zorder=1, alpha=.3,
-                    label=f"~95 % confidence{NEWLINE}{conf_interval2_start.strftime(HMINSEC_FORMAT)}-{conf_interval2_end.strftime(HMINSEC_FORMAT)}")
+        if not isinstance(onset_time, pd._libs.tslibs.nattype.NaTType):
+            ax.axvline(x=onset_time, color="red", zorder=5, label=f"Onset time:{NEWLINE}{onset_time.strftime(ONSETTIME_FORMAT)}")
+            ax.axvspan(xmin=conf_interval1_start, xmax=conf_interval1_end, 
+                        color=COLOR_SCHEME["1-sigma"], zorder=2, alpha=.3,
+                        label=f"~68 % confidence{NEWLINE}{conf_interval1_start.strftime(HMINSEC_FORMAT)}-{conf_interval1_end.strftime(HMINSEC_FORMAT)}")
+            ax.axvspan(xmin=conf_interval2_start, xmax=conf_interval2_end, 
+                        color=COLOR_SCHEME["2-sigma"], zorder=1, alpha=.3,
+                        label=f"~95 % confidence{NEWLINE}{conf_interval2_start.strftime(HMINSEC_FORMAT)}-{conf_interval2_end.strftime(HMINSEC_FORMAT)}")
 
         # Shade the background only if asked to and if it overlaps with the plot boundaries
         if show_background:
@@ -3256,8 +3263,9 @@ class Onset(Event):
                     next_run_uncertainty_mins = int(np.round((next_run_stats["1-sigma_confidence_interval"][1] - next_run_stats["1-sigma_confidence_interval"][0]).seconds / 60))
                 except ValueError as e:
                     print(e)
-                    print("This is caused failing to identify the onset despite additional time-averaging.")
-                    continue
+                    print("This is caused by failing to identify the onset despite additional time-averaging.")
+                    if i < try_avg_stop:
+                        continue
 
                 if not isinstance(next_run_uncertainty, pd._libs.tslibs.nattype.NaTType):
                     if prints:
