@@ -130,7 +130,13 @@ def z_score(series:pd.Series, mu:float, sigma:float):
         print("Warning! Z-score calculation impossible due to background mean = background standard deviation = 0.\nFalling back to scaled intensity.")
 
         # Find a value that makes sure that the intensity rise goes over unity instantly
-        scale_factor = np.reciprocal(np.nanmin(series.values[series>0]))
+        try:
+            scale_factor = np.reciprocal(np.nanmin(series.values[series>0]))
+        except ValueError as e:
+            print(e)
+            print("This is caused by the total lack of nonzero values in the data selection. Terminating without action.")
+            return series
+
         standard_values = series.values * scale_factor
 
     return pd.Series(standard_values, index=series.index)
