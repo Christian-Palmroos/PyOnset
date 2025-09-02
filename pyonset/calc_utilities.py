@@ -17,9 +17,17 @@ def k_parameter(mu:float, sigma:float, sigma_multiplier:int|float) -> float:
 
     Parameters:
     -----------
-    mu : {float} The mean of the background.
-    sigma : {float} The standard deviation of the background.
-    sigma_multiplier : {int,float} The multiplier for mu_{d}
+    mu : {float, np.ndarray} 
+                    The mean of the background.
+    sigma : {float, np.ndarray} 
+                    The standard deviation of the background.
+    sigma_multiplier : {int,float} 
+                    The multiplier for mu_{d} != 0.
+
+    Returns:
+    --------
+    k_param : {float, np.ndarray} Type depends on the input type.
+                    A valid k_parameter value (k >= 0).
     """
     if sigma_multiplier == 0:
         raise ValueError("sigma_multiplier may not be 0!")
@@ -35,6 +43,9 @@ def k_parameter(mu:float, sigma:float, sigma_multiplier:int|float) -> float:
     denominator = np.log(1 + (sigma_multiplier*sigma)/mu)
 
     k_param = (nominator/denominator) - (mu/sigma)
+
+    if not isinstance(k_param, (int, float, np.int64, np.float64, np.float128)):
+        return k_param
 
     return k_param if k_param >= 0 else 0
 
