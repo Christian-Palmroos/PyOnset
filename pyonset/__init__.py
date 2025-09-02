@@ -8,7 +8,7 @@ A library that holds the Onset class for PyOnset.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2025-08-22
+@Updated: 2025-09-02
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -3251,7 +3251,13 @@ class Onset(Event):
                                             sample_size=sample_size, resample=f"{i}min", erase=erase, small_windows=small_windows,
                                             cusum_minutes=cusum_minutes, sigma_multiplier=sigma_multiplier, detrend=True, k_model=k_model)
                 next_run_uncertainty = next_run_stats["1-sigma_confidence_interval"][1] - next_run_stats["1-sigma_confidence_interval"][0]
-                next_run_uncertainty_mins = int(np.round((next_run_stats["1-sigma_confidence_interval"][1] - next_run_stats["1-sigma_confidence_interval"][0]).seconds / 60))
+
+                try:
+                    next_run_uncertainty_mins = int(np.round((next_run_stats["1-sigma_confidence_interval"][1] - next_run_stats["1-sigma_confidence_interval"][0]).seconds / 60))
+                except ValueError as e:
+                    print(e)
+                    print("This is caused failing to identify the onset despite additional time-averaging.")
+                    continue
 
                 if not isinstance(next_run_uncertainty, pd._libs.tslibs.nattype.NaTType):
                     if prints:
@@ -3295,7 +3301,7 @@ class Onset(Event):
                     # If we tried everything and still no onset -> NaT and exit
                     if i==try_avg_stop:
                         if prints:
-                            print(f"No onsets found with {i} min time averaging. Terminating.")
+                            print(f"No onsets found with 1 min ... {i} min time averaging. Terminating.")
                             self.max_avg_times[channels] = pd.NaT
                             stats_arr.calculate_weighted_uncertainty("int_time")
                             return stats_arr

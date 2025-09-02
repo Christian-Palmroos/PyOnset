@@ -34,7 +34,9 @@ def k_parameter(mu:float, sigma:float, sigma_multiplier:int|float) -> float:
     nominator = sigma_multiplier
     denominator = np.log(1 + (sigma_multiplier*sigma)/mu)
 
-    return (nominator/denominator) - (mu/sigma)
+    k_param = (nominator/denominator) - (mu/sigma)
+
+    return k_param if k_param >= 0 else 0
 
 
 def k_classic(mu:float, sigma:float, sigma_multiplier:float) -> float:
