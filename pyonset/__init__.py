@@ -4633,7 +4633,7 @@ def seek_fit_and_errors(x,y,xerr,yerr, guess=None):
     return out
 
 
-def event_params_to_csv(event_params:dict, filename:str, filepath:str) -> None:
+def event_params_to_csv(event_params:dict, filename:str) -> None:
     """
     Saves the event parameters of the hybrid method to a csv file.
 
@@ -4644,8 +4644,6 @@ def event_params_to_csv(event_params:dict, filename:str, filepath:str) -> None:
                     compiled within the .final_onset_plot() -method.
     filename : {str}
                     The name of the csv file.
-    filepath : {str}
-                    The path to the directory where the csv table is to be saved.
     """
 
     CONF_INTERVAL_CONNECT = " -- "
@@ -4675,7 +4673,7 @@ def event_params_to_csv(event_params:dict, filename:str, filepath:str) -> None:
 
     df = pd.DataFrame(data=[new_values], columns=columns)
 
-    df.to_csv(f"{filepath}{filename}", index=False)
+    df.to_csv(filename, index=False)
     del df
 
 
