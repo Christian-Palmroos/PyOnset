@@ -1014,7 +1014,7 @@ class Onset(Event):
         savepath : {str}, optional
                     A path to save the figure.
         save : {bool}, optional
-                    A switch to save the figure.
+                    A switch to save the figure and a csv table containing analysis parameters.
         figname : {str}, optional
                     A custom name for the figure if saved.
 
@@ -3363,7 +3363,7 @@ class Onset(Event):
         return stats_arr
 
 
-    def onset_statistics_per_channel(self, background, viewing, channels=None, erase:list=None, cusum_minutes:int=30, 
+    def onset_statistics_per_channel(self, background, viewing=None, channels=None, erase:list=None, cusum_minutes:int=30, 
                                      sample_size:float=0.50, weights:str="inverse_variance", detrend=True, 
                                      limit_computation_time=True, average_to=None, print_output=False, 
                                      limit_averaging=None, fail_avg_stop:int=None, random_seed:int=None, 
@@ -3378,8 +3378,8 @@ class Onset(Event):
                     A tuple, list or Range of channel ID's to run the method on. Leave to None or set to 'all' to run for all channels.
         background : {BootstrapWindow}
                     The common pre-event background used for the energy channels. 
-        viewing : {str}
-                    The viewing direction if the instrument.
+        viewing : {str}, optional
+                    The viewing direction if the instrument. If not provided, use the default class attribute one.
         erase : {tuple(float, str)}, optional
                     If there are spikes in the background one wishes to omit, set the threshold value and ending point for ignoring those
                     values here. Example: [1000, '2022-05-10 12:00'] discards all values 1000 or above until 2022-05-10 noon.
@@ -3421,6 +3421,16 @@ class Onset(Event):
                     A numpy array of OnsetStatsArray objects, each of which encapsulates statistics of the onset wime in each of the channels
                     that the method was run over. 
         """
+
+        # Set the viewing even in the case it was not input by a user
+        viewing = viewing if viewing is not None else self.viewing
+
+        # Logic of this check:
+        # If viewing was set (meaning viewing evaluates to True) and Onset.check_viewing() returns None 
+        # (which evaluates to False), then viewing must be invalid.
+        if viewing and not self.check_viewing(returns=True):
+            raise ValueError("Invalid viewing direction!")
+
 
         # If a random seed (and a valid one!) was given, apply it before doing anything else
         if isinstance(random_seed,int):
