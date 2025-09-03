@@ -1178,8 +1178,7 @@ class Onset(Event):
                             transparent=False, bbox_inches="tight", format="png")
 
             # ...and the csv:
-            event_params_to_csv(event_params=event_dict, filename=f"{figname}.csv",
-                                filepath=savepath)
+            event_params_to_csv(event_params=event_dict, filename=f"{figname}.csv")
 
         # Finally show the plot
         plt.show()
