@@ -1160,11 +1160,11 @@ class Onset(Event):
             # Generate a name for the fig IF custom name was not provided
             if not isinstance(figname,str):
                 if self.spacecraft.lower() in ["bepicolombo", "bepi"]:
-                    figname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_side{viewing}_{self.species}_{channel}_onset.png"
+                    figname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_side{viewing}_{self.species}_{channel}_onset"
                 elif self.viewing is not None:
-                    figname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_{self.viewing.lower()}_{self.species}_{channel}_onset.png"
+                    figname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_{self.viewing.lower()}_{self.species}_{channel}_onset"
                 else:
-                    figname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_{self.species}_{channel}_onset.png"
+                    figname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_{self.species}_{channel}_onset"
 
                 # If peak was found, add to the figname
                 if peak:
@@ -1175,10 +1175,10 @@ class Onset(Event):
 
             # Save the figure:
             fig.savefig(fname=f"{savepath}{os.sep}{figname}", facecolor="white", 
-                            transparent=False, bbox_inches="tight")
+                            transparent=False, bbox_inches="tight", format="png")
             
             # ...and the csv:
-            event_params_to_csv(event_params=event_dict, filename=figname.replace("png", "csv"),
+            event_params_to_csv(event_params=event_dict, filename=f"{figname}.csv",
                                 filepath=savepath)
 
         # Finally show the plot
