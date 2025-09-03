@@ -8,7 +8,7 @@ A library that holds the Onset class for PyOnset.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2025-09-02
+@Updated: 2025-09-03
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -170,6 +170,10 @@ class Onset(Event):
 
         # This will turn true once the extensive statistics analysis is run
         self.mean_of_medians_onset_acquired = False
+
+        # Let the object remember which n was used to calculate the k in the method.
+        # By default this value is 2, but update it if changed.
+        self.sigma_multiplier = 2
 
         # Choosing the particle species identifier for the titles etc
         if self.species in ["electron", "electrons", 'e']:
@@ -633,6 +637,10 @@ class Onset(Event):
             onset_stats = onset_determination_cr(background_stats, flux_series, cusum_window, background_end, sigma_multiplier)
         else:
             raise ValueError(f"The parameter cusum_type must be either 'modified' or 'classic', not {cusum_type}. None=='modified'.")
+
+        # Update the class attribute n after the onset has been found. This is done AFTER onset determimination
+        # so that an invalid value of n may not be saved.
+        self.sigma_multiplier = sigma_multiplier
 
         # If the timestamp of onset is not NaT, then onset was found
         if not isinstance(onset_stats[-1],pd._libs.tslibs.nattype.NaTType):
@@ -3474,6 +3482,9 @@ class Onset(Event):
 
             # Add statistics to the array that holds statistics related to each individual channel
             uncertainty_stats_by_channel = np.append(uncertainty_stats_by_channel, onset_uncertainty_stats)
+
+        # Finally update the class attribute n
+        self.sigma_multiplier = sigma_multiplier
 
         return uncertainty_stats_by_channel
 
