@@ -1174,9 +1174,9 @@ class Onset(Event):
                     figname += resample
 
             # Save the figure:
-            fig.savefig(fname=f"{savepath}{os.sep}{figname}", facecolor="white", 
+            fig.savefig(fname=f"{figname}", facecolor="white", 
                             transparent=False, bbox_inches="tight", format="png")
-            
+
             # ...and the csv:
             event_params_to_csv(event_params=event_dict, filename=f"{figname}.csv",
                                 filepath=savepath)
