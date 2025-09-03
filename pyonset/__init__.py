@@ -4648,6 +4648,8 @@ def event_params_to_csv(event_params:dict, filename:str, filepath:str) -> None:
                     The path to the directory where the csv table is to be saved.
     """
 
+    CONF_INTERVAL_CONNECT = " -- "
+
     columns = []
     for name in event_params.keys():
 
@@ -4665,7 +4667,7 @@ def event_params_to_csv(event_params:dict, filename:str, filepath:str) -> None:
 
         # In case of the confidence intervals; they come in pairs stored in lists
         if isinstance(value, list):
-            new_value = f"{value[0].strftime('%Y-%m-%d %H:%M:%S.%f')}{f}{value[1].strftime('%Y-%m-%d %H:%M:%S.%f')}"
+            new_value = f"{value[0].strftime('%Y-%m-%d %H:%M:%S.%f')}{CONF_INTERVAL_CONNECT}{value[1].strftime('%Y-%m-%d %H:%M:%S.%f')}"
             new_values.append(new_value)
             continue
 
