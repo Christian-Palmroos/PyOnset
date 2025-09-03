@@ -1014,7 +1014,8 @@ class Onset(Event):
         savepath : {str}, optional
                     A path to save the figure.
         save : {bool}, optional
-                    A switch to save the figure and a csv table containing analysis parameters.
+                    A switch to save the figure and a csv table containing analysis parameters. The parameters
+                    are also ALWAYS returned as a dictionary.
         figname : {str}, optional
                     A custom name for the figure if saved.
 
@@ -1048,7 +1049,8 @@ class Onset(Event):
         event_dict = {
             "onset_time" : onset_time,
             "confidence_interval1" : [conf_interval1_start, conf_interval1_end],
-            "confidence_interval2" : [conf_interval2_start, conf_interval2_end]
+            "confidence_interval2" : [conf_interval2_start, conf_interval2_end],
+            "sigma_multiplier" : self.sigma_multiplier
         }
 
         # Choose either custom data or standard to plot
@@ -1174,6 +1176,10 @@ class Onset(Event):
             # Save the figure:
             fig.savefig(fname=f"{savepath}{os.sep}{figname}", facecolor="white", 
                             transparent=False, bbox_inches="tight")
+            
+            # ...and the csv:
+            event_params_to_csv(event_params=event_dict, filename=figname.replace("png", "csv"),
+                                filepath=savepath)
 
         # Finally show the plot
         plt.show()
@@ -4625,6 +4631,50 @@ def seek_fit_and_errors(x,y,xerr,yerr, guess=None):
     # out.pprint()
 
     return out
+
+
+def event_params_to_csv(event_params:dict, filename:str, filepath:str) -> None:
+    """
+    Saves the event parameters of the hybrid method to a csv file.
+
+    Parameters:
+    -----------
+    event_params : {dict}
+                    A dictionary that contains the event parameters. The dictionary is 
+                    compiled within the .final_onset_plot() -method.
+    filename : {str}
+                    The name of the csv file.
+    filepath : {str}
+                    The path to the directory where the csv table is to be saved.
+    """
+
+    columns = []
+    for name in event_params.keys():
+
+        if name == "confidence_interval1":
+            name = "~68% error"
+        if name == "confidence_interval2":
+            name = "~95% error"
+        if name == "peak_intensity":
+            name = f"{name} [1/cm^2 sr s MeV]"
+
+        columns.append(name)
+
+    new_values = []
+    for value in event_params.values():
+
+        # In case of the confidence intervals; they come in pairs stored in lists
+        if isinstance(value, list):
+            new_value = f"{value[0].strftime('%Y-%m-%d %H:%M:%S.%f')}{f}{value[1].strftime('%Y-%m-%d %H:%M:%S.%f')}"
+            new_values.append(new_value)
+            continue
+
+        new_values.append(value)
+
+    df = pd.DataFrame(data=[new_values], columns=columns)
+
+    df.to_csv(f"{filepath}{filename}", index=False)
+    del df
 
 
 def _isnotebook():
