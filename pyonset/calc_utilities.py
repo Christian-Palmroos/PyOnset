@@ -44,7 +44,7 @@ def k_parameter(mu:float, sigma:float, sigma_multiplier:int|float) -> float:
 
     k_param = (nominator/denominator) - (mu/sigma)
 
-    if not isinstance(k_param, (int, float, np.int64, np.float64, np.float128)):
+    if not isinstance(k_param, (int, float, np.int64, np.float64, np.longdouble)):
         return k_param
 
     return k_param if k_param >= 0 else 0

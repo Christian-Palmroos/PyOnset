@@ -183,8 +183,11 @@ class BootstrapWindow:
         # Check also that mu,sigma>0, because otherwise they don't have an order of magnitude
         mu_oom = order_of_magnitude(num=mu) if mu>0 else 0
         sigma_oom = order_of_magnitude(num=sigma) if sigma>0 else 0
-        mus = np.logspace(mu_oom-KCONTOUR_OOM_PM, mu_oom+KCONTOUR_OOM_PM, num=1500)
-        sigmas = np.logspace(sigma_oom-KCONTOUR_OOM_PM, sigma_oom+KCONTOUR_OOM_PM, num=1500)
+
+        # Generate the mus and sigmas with the datatype longdouble, because in extreme cases
+        # calculation precision starts to be a problem with regular floating point numbers.
+        mus = np.logspace(mu_oom-KCONTOUR_OOM_PM, mu_oom+KCONTOUR_OOM_PM, num=1500, dtype=np.longdouble)
+        sigmas = np.logspace(sigma_oom-KCONTOUR_OOM_PM, sigma_oom+KCONTOUR_OOM_PM, num=1500, dtype=np.longdouble)
 
         # The meshgrid to use in plotting
         xx, yy = np.meshgrid(mus, sigmas)
