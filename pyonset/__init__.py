@@ -8,7 +8,7 @@ A library that holds the Onset class for PyOnset.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2025-09-03
+@Updated: 2025-09-08
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -154,6 +154,9 @@ class Onset(Event):
 
             # Custom data flag prevents SEPpy functions from being called, as they would cause errors
             self.custom_data = True
+
+            # The channel energy dictionary maps channel names to channel energies
+            self.channel_en_dict = None
 
             # Lets the user know that the object is initialized with custom settings
             print("Utilizing user-input data. Some SEPpy functionality may not work as intended.")
@@ -482,7 +485,7 @@ class Onset(Event):
         if unit == "eV":
             self.channel_energy_lows = np.array([low for low in low_bounds])
             self.channel_energy_highs = np.array([high for high in high_bounds])
-        
+
         self.set_channel_strings(channel_lows=low_bounds, channel_highs=high_bounds, unit=unit)
 
 
@@ -578,7 +581,26 @@ class Onset(Event):
         if not self.custom_data:
             flux_series, en_channel_string = self.choose_flux_series(channels=channels, viewing=viewing)
         else:
-            flux_series, en_channel_string = self.data[channels], channels
+            flux_series = self.data[channels]
+
+            # By default we first try to access the channel energies from the channel energies
+            # dictionary. If that fails, fall back to using the channel name for channel energy.
+            try:
+                en_channel_string = self.channel_en_dict[channels]
+            
+            # TypeError is caused by NoneType being unsubscriptable; the dictionary does not exist
+            except TypeError:
+                print("Channel energy dictionary not found.")
+                print("Define channel energy boundaries with 'set_custom_channel_energies().")
+
+            # KeyError is raised when there is not corresponding channel energy string for the
+            # given channel.
+            except KeyError as kee_ee:
+                print(kee_ee)
+                print("Check that channel energies are set correctly.")
+            finally:
+                en_channel_string = channels
+
             self.last_used_channel = channels
 
         # Glitches from the data should really be erased BEFORE resampling data
@@ -834,7 +856,7 @@ class Onset(Event):
         onset_stats_dict = {}
 
         onset_stats_dict["bg_mu"] = onset_stats[0]
-        onset_stats_dict["bu_mu_d"] = onset_stats[1]
+        onset_stats_dict["bg_mu_d"] = onset_stats[1]
         onset_stats_dict["k_parameter"] = onset_stats[2]
         onset_stats_dict["hastiness_threshold"] = onset_stats[3]
         onset_stats_dict["ints_norm"] = onset_stats[4]
@@ -1159,12 +1181,13 @@ class Onset(Event):
 
             # Generate a name for the fig IF custom name was not provided
             if not isinstance(figname,str):
+                onset_yyyymmdd_str = onset_time.strftime("%Y%m%d")
                 if self.spacecraft.lower() in ["bepicolombo", "bepi"]:
-                    figname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_side{viewing}_{self.species}_{channel}_onset"
+                    figname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_side{viewing}_{self.species}_{channel}_{onset_yyyymmdd_str}"
                 elif self.viewing is not None:
-                    figname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_{self.viewing.lower()}_{self.species}_{channel}_onset"
+                    figname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_{self.viewing.lower()}_{self.species}_{channel}_{onset_yyyymmdd_str}"
                 else:
-                    figname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_{self.species}_{channel}_onset"
+                    figname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_{self.species}_{channel}_{onset_yyyymmdd_str}"
 
                 # If peak was found, add to the figname
                 if peak:
@@ -1174,7 +1197,7 @@ class Onset(Event):
                     figname += resample
 
             # Save the figure:
-            fig.savefig(fname=f"{figname}", facecolor="white", 
+            fig.savefig(fname=f"{figname}.png", facecolor="white", 
                             transparent=False, bbox_inches="tight", format="png")
 
             # ...and the csv:
@@ -3715,12 +3738,9 @@ class Onset(Event):
 
         # The mean speeds of the energetic particles. The problem here is that the array
         # requires knowledge of the channel indices.
-        try:
+        if not self.custom_data:
             sep_speeds = self.calculate_particle_speeds()
-
-        # The UnboundLocalError arises due to seppy.calculate_particle_speeds() not recognizing the
-        # energy values of the channels. Most likely because user has some custom data.
-        except UnboundLocalError:
+        else:
             sep_speeds = self.calculate_particle_speeds_custom()
 
         if onset_times is None:
