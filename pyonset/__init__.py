@@ -3271,8 +3271,6 @@ class Onset(Event):
                 if stop_int > 0:
                     if prints:
                         print(f"Averaging up to {stop_int} minutes")
-                    else:
-                        pass
 
                 # SolO instruments and Wind/3DP have high cadence (< 1 min), so start integrating from 1 minute measurements
                     # unless limit_computation_time is enabled
@@ -3349,9 +3347,9 @@ class Onset(Event):
                     if i==try_avg_stop:
                         if prints:
                             print(f"No onsets found with 1 min ... {i} min time averaging. Terminating.")
-                            self.max_avg_times[channels] = pd.NaT
-                            stats_arr.calculate_weighted_uncertainty("int_time")
-                            return stats_arr
+                        self.max_avg_times[channels] = pd.NaT
+                        stats_arr.calculate_weighted_uncertainty("int_time")
+                        return stats_arr
                     else:
                         pass
 
