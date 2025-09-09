@@ -8,7 +8,7 @@ A library that holds the Onset class for PyOnset.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2025-09-08
+@Updated: 2025-09-09
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -914,6 +914,7 @@ class Onset(Event):
     
         return (fig,ax)
 
+
     def z_score_plot(self, series:pd.Series, background:BootstrapWindow, n_sigma:int, ax:plt.Axes=None, yscale:str="log",
                      xlim:tuple|list=None, ylim:tuple|list=None, k_model:str=None,
                      norm:str='z') -> plt.Figure:
@@ -999,9 +1000,9 @@ class Onset(Event):
 
 
     def final_onset_plot(self, channel, resample:str=None, xlim:tuple|list=None, ylim:tuple|list=None,
-                show_background:bool=True, peak:bool=False,
-                onset:str="mode", title:str=None, legend_loc:str="out",
-                savepath:str=None, save:bool=False, figname:str=None) -> dict:
+            show_background:bool=True, peak:bool=False,
+            onset:str="mode", title:str=None, legend_loc:str="out",
+            savepath:str=None, save:bool=False, figname:str=None) -> dict:
         """
         Produces the 'final' plot that showcases the intensity time series, the onset time and its 
         confidence intervals and the background selection.
@@ -1044,8 +1045,9 @@ class Onset(Event):
         Returns:
         ---------
         event_dict : {dict} Contains 'onset_time', 'confidence_interval1', 
-                            'confidence_interval2', 'peak_intensity', 'peak_time',
-                            'max_averaging'
+                            'confidence_interval2', sigma_multiplier, 
+                            'background', 'max_averaging', 
+                            'peak_intensity', 'peak_time'
         """
 
         FRST_CONF_START = 2
@@ -1072,7 +1074,8 @@ class Onset(Event):
             "onset_time" : onset_time,
             "confidence_interval1" : [conf_interval1_start, conf_interval1_end],
             "confidence_interval2" : [conf_interval2_start, conf_interval2_end],
-            "sigma_multiplier" : self.sigma_multiplier
+            "sigma_multiplier" : self.sigma_multiplier,
+            "background" : [self.background.start, self.background.end]
         }
 
         # Choose either custom data or standard to plot
@@ -4665,7 +4668,8 @@ def event_params_to_csv(event_params:dict, filename:str) -> None:
                     The name of the csv file.
     """
 
-    CONF_INTERVAL_CONNECT = " -- "
+    TIME_INTERVAL_CONNECT = " -- "
+    DT_SAVE_FORMAT = "%Y-%m-%d %H:%M:%S" 
 
     columns = []
     for name in event_params.keys():
@@ -4684,7 +4688,7 @@ def event_params_to_csv(event_params:dict, filename:str) -> None:
 
         # In case of the confidence intervals; they come in pairs stored in lists
         if isinstance(value, list):
-            new_value = f"{value[0].strftime('%Y-%m-%d %H:%M:%S.%f')}{CONF_INTERVAL_CONNECT}{value[1].strftime('%Y-%m-%d %H:%M:%S.%f')}"
+            new_value = f"{value[0].strftime(DT_SAVE_FORMAT)}{TIME_INTERVAL_CONNECT}{value[1].strftime(DT_SAVE_FORMAT)}"
             new_values.append(new_value)
             continue
 
