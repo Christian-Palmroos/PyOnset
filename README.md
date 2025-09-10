@@ -1,6 +1,7 @@
 
 [![Python versions](https://img.shields.io/badge/python-3.10_--_3.13-blue)]()
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
+[![DOI](https://zenodo.org/badge/719632136.svg)](https://doi.org/10.5281/zenodo.17092754)
 
 # PyOnset
 
