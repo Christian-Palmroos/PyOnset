@@ -8,7 +8,7 @@ A library that holds the Onset class for PyOnset.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2025-09-09
+@Updated: 2025-09-10
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -165,7 +165,7 @@ class Onset(Event):
         self.last_used_channel = np.nan
 
         # The background window is stored to this attribute when cusum_onset() is called with a BootStrapWindow input
-        self.background = np.nan
+        self.background = None
 
         # This list is for holding multiple background windows if such were to be used
         self.list_of_bootstrap_windows = []
@@ -1046,7 +1046,7 @@ class Onset(Event):
         ---------
         event_dict : {dict} Contains 'onset_time', 'confidence_interval1', 
                             'confidence_interval2', sigma_multiplier, 
-                            'background', 'max_averaging', 
+                            'background', 'limit_averaging', 'max_averaging', 
                             'peak_intensity', 'peak_time'
         """
 
@@ -1075,7 +1075,8 @@ class Onset(Event):
             "confidence_interval1" : [conf_interval1_start, conf_interval1_end],
             "confidence_interval2" : [conf_interval2_start, conf_interval2_end],
             "sigma_multiplier" : self.sigma_multiplier,
-            "background" : [self.background.start, self.background.end]
+            "background" : [self.background.start, self.background.end],
+            "limit_averaging" : self.background.max_recommended_reso
         }
 
         # Choose either custom data or standard to plot
@@ -4678,6 +4679,8 @@ def event_params_to_csv(event_params:dict, filename:str) -> None:
             name = "~95% error"
         if name == "peak_intensity":
             name = f"{name} [1/cm^2 sr s MeV]"
+        if name in ("limit_averaging", "max_averaging"):
+            name = f"{name} [min]"
 
         columns.append(name)
 
