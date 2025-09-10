@@ -1076,7 +1076,7 @@ class Onset(Event):
             "confidence_interval2" : [conf_interval2_start, conf_interval2_end],
             "sigma_multiplier" : self.sigma_multiplier,
             "background" : [self.background.start, self.background.end],
-            "limit_averaging" : self.background.max_recommended_reso
+            "limit_averaging" : pd.Timedelta(minutes=self.background.max_recommended_reso)
         }
 
         # Choose either custom data or standard to plot
@@ -3169,7 +3169,7 @@ class Onset(Event):
             stop_int = dt_str_to_int(stop)
             # Unit of time
             unit_of_time = find_biggest_nonzero_unit(timedelta=pd.Timedelta(stop))
-        if limit_averaging:
+        if limit_averaging is not None:
             limit_averaging_int = dt_str_to_int(limit_averaging)
             # Unit of time
             unit_of_time = find_biggest_nonzero_unit(timedelta=pd.Timedelta(limit_averaging))
@@ -4679,8 +4679,6 @@ def event_params_to_csv(event_params:dict, filename:str) -> None:
             name = "~95% error"
         if name == "peak_intensity":
             name = f"{name} [1/cm^2 sr s MeV]"
-        if name in ("limit_averaging", "max_averaging"):
-            name = f"{name} [min]"
 
         columns.append(name)
 
