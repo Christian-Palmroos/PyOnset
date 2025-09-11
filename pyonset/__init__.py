@@ -8,7 +8,7 @@ A library that holds the Onset class for PyOnset.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2025-09-10
+@Updated: 2025-09-11
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -58,7 +58,7 @@ from .datetime_utilities import datetime_to_sec, datetime_nanmedian, detrend_ons
                                 get_figdate, check_confidence_intervals
 
 from .calc_utilities import z_score, sigma_norm, k_parameter, k_legacy, k_classic
-from .plot_utilities import set_fig_ylimits, set_standard_ticks, set_legend, max_averaging_reso_textbox, \
+from .plot_utilities import set_fig_ylimits, set_standard_ticks, set_legend, max_averaging_reso_textbox, save_figure, \
                             TITLE_FONTSIZE, STANDARD_FIGSIZE, VDA_FIGSIZE, AXLABEL_FONTSIZE, \
                             TICK_LABELSIZE, TXTBOX_SIZE, LEGEND_SIZE, COLOR_SCHEME
 
@@ -489,9 +489,11 @@ class Onset(Event):
         self.set_channel_strings(channel_lows=low_bounds, channel_highs=high_bounds, unit=unit)
 
 
-    def cusum_onset(self, channels, background_range, viewing=None, resample=None, cusum_minutes=30, sigma_multiplier=2, title=None, save=False, savepath=None, 
-                    yscale='log', ylim=None, erase=None, xlim=None, show_stats=True, diagnostics=False, plot=True, fname:str=None,
-                    k_model:str=None, poisson_test:bool=False, norm='z', cusum_type:str=None):
+    def cusum_onset(self, channels, background_range, viewing=None, resample=None, cusum_minutes=30, 
+                    sigma_multiplier=2, title=None, save=False, savepath=None, yscale='log', 
+                    ylim=None, erase=None, xlim=None, show_stats=True, diagnostics=False, 
+                    plot=True, fname:str=None, k_model:str=None, poisson_test:bool=False, 
+                    norm='z', cusum_type:str=None):
         """
         Does a Poisson-CUSUM-method-based onset analysis for given OnsetAnalysis object.
         Based on an earlier version by: Eleanna Asvestari <eleanna.asvestari@helsinki.fi>
@@ -542,8 +544,9 @@ class Onset(Event):
                 modified CUSUM that works on z-standardized values. Default == None -> modified.
         Returns:
         ---------
-        onset_stats: list
-                A list of onset statistics. [background_mean, background_mean+sigma*std, k_round, normed_values, CUSUM_function, Timestamp_of_Onset]
+        onset_stats: {dict}
+                A dictionary containing onset statistics. {background_mean, background_mean+sigma*std, k-parameter,
+                h-parameter, normed_values, CUSUM_function, Timestamp_of_Onset, channel_energy_string}
         flux_series: Pandas Series
                 The series used for producing the plot and running the onset analysis.
         """
@@ -784,23 +787,8 @@ class Onset(Event):
             # Attach the figure to class attribute even if not saving the figure
             self.fig, self.ax = fig, ax
 
-            if save:
-                if savepath is None:
-                    savepath = CURRENT_PATH
-
-                # Use a default name for the figure if custom name was not provided
-                if not isinstance(fname, str):
-
-                    if spacecraft.lower() in ["bepicolombo", "bepi"]:
-                        fname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_side{viewing}_{self.species}_{channels}_onset.png"
-                    elif viewing != "" and viewing is not None:
-                        fname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_{viewing.lower()}_{self.species}_{channels}_onset.png"
-                    else:
-                        fname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_{self.species}_{channels[:]}_onset.png"
-
-                # Saves the figure
-                fig.savefig(fname=f"{savepath}{os.sep}{fname}",
-                                facecolor="white", transparent=False, bbox_inches="tight")
+            # fig.savefig(fname=f"{savepath}{os.sep}{fname}",
+            #                 facecolor="white", transparent=False, bbox_inches="tight")
 
             # Run additional diagnostic tools -> Add two subplots displaying the z-standardized intensity
             # time series (with k) and a heatmap displaying k as a function of bg mu and sigma.
@@ -850,6 +838,26 @@ class Onset(Event):
                 new_bar_pos = [bar_pos.x0, bar_pos.y0 - offset_down_k, bar_pos.width+0.45, bar_pos.height+0.35]
                 k_cb.ax.set_position(new_bar_pos)
 
+            # Everything plotting-related has been done. The figure can be saved.
+            if save:
+                if savepath is None:
+                    savepath = CURRENT_PATH
+
+                # Use a default name for the figure if custom name was not provided. The
+                # default name is generated here.
+                if not isinstance(fname, str):
+
+                    if spacecraft.lower() in ["bepicolombo", "bepi"]:
+                        fname = f"{self.spacecraft}_{self.sensor}_side{viewing}_{self.species}_{channels}_onset.png"
+                    elif viewing != "" and viewing is not None:
+                        fname = f"{self.spacecraft}_{self.sensor}_{viewing.lower()}_{self.species}_{channels}_onset.png"
+                    else:
+                        fname = f"{self.spacecraft}_{self.sensor}_{self.species}_{channels}_onset.png"
+
+                # Save the figure:
+                save_figure(figure=fig, fname=fname, savepath=savepath)
+
+            # Show the figure if it was created
             plt.show()
 
         # Assemble a dictionary of return values:
@@ -1002,7 +1010,7 @@ class Onset(Event):
     def final_onset_plot(self, channel, resample:str=None, xlim:tuple|list=None, ylim:tuple|list=None,
             show_background:bool=True, peak:bool=False,
             onset:str="mode", title:str=None, legend_loc:str="out",
-            savepath:str=None, save:bool=False, figname:str=None) -> dict:
+            savepath:str=None, save:bool=False, fname:str=None) -> dict:
         """
         Produces the 'final' plot that showcases the intensity time series, the onset time and its 
         confidence intervals and the background selection.
@@ -1039,8 +1047,8 @@ class Onset(Event):
         save : {bool}, optional
                     A switch to save the figure and a csv table containing analysis parameters. The parameters
                     are also ALWAYS returned as a dictionary.
-        figname : {str}, optional
-                    A custom name for the figure if saved.
+        fname : {str}, optional
+                    A custom name for the figure (and the corresponding csv) if saved.
 
         Returns:
         ---------
@@ -1184,28 +1192,29 @@ class Onset(Event):
                 savepath = CURRENT_PATH
 
             # Generate a name for the fig IF custom name was not provided
-            if not isinstance(figname,str):
+            if not isinstance(fname,str):
                 onset_yyyymmdd_str = onset_time.strftime("%Y%m%d")
                 if self.spacecraft.lower() in ["bepicolombo", "bepi"]:
-                    figname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_side{viewing}_{self.species}_{channel}_{onset_yyyymmdd_str}"
+                    fname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_side{self.viewing}_{self.species}_{channel}_{onset_yyyymmdd_str}"
                 elif self.viewing is not None:
-                    figname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_{self.viewing.lower()}_{self.species}_{channel}_{onset_yyyymmdd_str}"
+                    fname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_{self.viewing.lower()}_{self.species}_{channel}_{onset_yyyymmdd_str}"
                 else:
-                    figname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_{self.species}_{channel}_{onset_yyyymmdd_str}"
+                    fname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_{self.species}_{channel}_{onset_yyyymmdd_str}"
 
-                # If peak was found, add to the figname
+                # If peak was found, add to the fname
                 if peak:
-                    figname += "peak"
-                # If resampling was applied, add it to the end of the figname
+                    fname += "peak"
+                # If resampling was applied, add it to the end of the fname
                 if resample is not None:
-                    figname += resample
+                    fname += resample
 
             # Save the figure:
-            fig.savefig(fname=f"{figname}.png", facecolor="white", 
-                            transparent=False, bbox_inches="tight", format="png")
+            save_figure(figure=fig, fname=fname, savepath=savepath)
 
             # ...and the csv:
-            event_params_to_csv(event_params=event_dict, filename=f"{figname}.csv")
+            figformat = fname.split('.')[-1]
+            csvname = fname.replace(figformat,"csv")
+            event_params_to_csv(event_params=event_dict, filename=f"{csvname}")
 
         # Finally show the plot
         plt.show()

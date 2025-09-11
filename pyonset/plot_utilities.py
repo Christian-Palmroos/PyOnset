@@ -7,6 +7,7 @@ This file contains functions and constants for plotting procedures for PyOnset.
 
 __author__ = "Christian Palmroos"
 
+import os
 import numpy as np
 import pandas as pd
 
@@ -112,3 +113,29 @@ def max_averaging_reso_textbox(max_avg_time:pd.Timedelta, legend_loc:str, ax:plt
 
     # Add the label to the axes
     ax.add_artist(label)
+
+
+def save_figure(figure, fname, savepath) -> None:
+    """
+    Saves the input figure with the given fname to the given
+    savepath.
+
+    Figure : {plt.Figure} 
+
+    fname : {str} Name for the figure.
+
+    savepath : {str} Path to where to save the figure.
+    """
+
+    # Validate the figure name
+    if '.' not in fname:
+        raise ValueError("Figure name is missing file format!")
+
+    FIGURE_TRANSPARENCY = False
+    FIGURE_FACECOLOR = "white"
+    DEFAULT_BBOX = "tight"
+
+    figure.savefig(fname=f"{savepath}{os.sep}{fname}",
+                  facecolor=FIGURE_FACECOLOR,
+                  transparent=FIGURE_TRANSPARENCY,
+                  bbox_inches=DEFAULT_BBOX)
