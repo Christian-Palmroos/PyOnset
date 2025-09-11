@@ -1195,11 +1195,11 @@ class Onset(Event):
             if not isinstance(fname,str):
                 onset_yyyymmdd_str = onset_time.strftime("%Y%m%d")
                 if self.spacecraft.lower() in ["bepicolombo", "bepi"]:
-                    fname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_side{self.viewing}_{self.species}_{channel}_{onset_yyyymmdd_str}"
+                    fname = f"{self.spacecraft}_{self.sensor}_side{self.viewing}_{self.species}_{channel}_{onset_yyyymmdd_str}"
                 elif self.viewing is not None:
-                    fname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_{self.viewing.lower()}_{self.species}_{channel}_{onset_yyyymmdd_str}"
+                    fname = f"{self.spacecraft}_{self.sensor}_{self.viewing.lower()}_{self.species}_{channel}_{onset_yyyymmdd_str}"
                 else:
-                    fname = f"{savepath}{os.sep}{self.spacecraft}_{self.sensor}_{self.species}_{channel}_{onset_yyyymmdd_str}"
+                    fname = f"{self.spacecraft}_{self.sensor}_{self.species}_{channel}_{onset_yyyymmdd_str}"
 
                 # If peak was found, add to the fname
                 if peak:
