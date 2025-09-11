@@ -2305,7 +2305,7 @@ class Onset(Event):
 
     def VDA(self, onset_times=None, Onset=None, energy:str='gmean', selection=None, 
             yerrs=None, reference:str="mode", title=None, ylim=None, plot=True, guess=None, save=False,
-            savepath=None, grid=True, show_omitted=True):
+            savepath=None, fname:str=None, grid=True, show_omitted=True):
         """
         Performs Velocity Dispersion Analysis.
 
@@ -2335,6 +2335,8 @@ class Onset(Event):
                     intersection point, which is a pandas-compatible datetime string.
         save: {bool}, default False
                     Switch to save the plotted figure. Only works if plot=True.
+        fname : {str}, default None
+                    A custom name for the figure if saved.
         grid : {bool} default True
                     Boolean switch for gridlines.
         show_omitted : {bool} default True
@@ -3047,12 +3049,15 @@ class Onset(Event):
             if save:
                 if not savepath:
                     savepath = CURRENT_PATH
-                if Onset:
-                    savestr = f"{savepath}{os.sep}VDA_{spacecraft}_{instrument}({self.viewing})+{Onset.sensor}_{species_title}_{date_of_event}.png" if self.viewing else f"{savepath}{os.sep}VDA_{spacecraft}_{instrument}+{Onset.sensor}_{species_title}_{date_of_event}.png"
-                else:
-                    savestr = f"{savepath}{os.sep}VDA_{spacecraft}_{instrument}_{self.viewing}_{species_title}_{date_of_event}.png" if self.viewing else f"{savepath}{os.sep}VDA_{spacecraft}_{instrument}_{species_title}_{date_of_event}.png"
-                plt.savefig(savestr, transparent=False,
-                        facecolor="white", bbox_inches="tight")
+
+                # If no custom name for the figure, generate it here
+                if not isinstance(fname, str):
+                    if Onset:
+                        fname = f"{savepath}{os.sep}VDA_{spacecraft}_{instrument}({self.viewing})+{Onset.sensor}_{species_title}_{date_of_event}.png" if self.viewing else f"{savepath}{os.sep}VDA_{spacecraft}_{instrument}+{Onset.sensor}_{species_title}_{date_of_event}.png"
+                    else:
+                        fname = f"{savepath}{os.sep}VDA_{spacecraft}_{instrument}_{self.viewing}_{species_title}_{date_of_event}.png" if self.viewing else f"{savepath}{os.sep}VDA_{spacecraft}_{instrument}_{species_title}_{date_of_event}.png"
+
+                save_figure(figure=fig, fname=fname, savepath=savepath)
 
             # Showing the figure (must be done AFTER saving)
             plt.show()
