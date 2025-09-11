@@ -1208,6 +1208,9 @@ class Onset(Event):
                 if resample is not None:
                     fname += resample
 
+                # Finally add fileformat to the figure name
+                fname += ".png"
+
             # Save the figure:
             save_figure(figure=fig, fname=fname, savepath=savepath)
 
