@@ -4381,6 +4381,13 @@ def onset_determination(ma_sigma, flux_series, cusum_window, avg_end, sigma_mult
     # start at the index where averaging window ends
     for i in range(start_index,len(cusum)):
 
+        # If there are gaps in the data (nans) we want to ignore them.
+        # This is done by keeping cusum constant over data gaps. 
+        # During gaps alert signals are not modified, i.e., not incremented nor set to zero.
+        if np.isnan(norm_channel[i]):
+            cusum[i] = cusum[i-1]
+            continue
+
         # Calculate the value for the next cusum entry
         cusum[i] = max(0, norm_channel[i] - k_round + cusum[i-1])
 
