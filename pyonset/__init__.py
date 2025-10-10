@@ -4365,7 +4365,13 @@ def onset_determination(ma_sigma, flux_series, cusum_window, avg_end, sigma_mult
     # choose h, the variable dictating the "hastiness" of onset alert
     h = 2 if k_round>1 else 1
 
+    # Tracks the number of consecutive alert signals given
     alert = 0
+
+    # A counter for the amount of nans subsequent to the last time the warning signal
+    # turned from 0 to 1
+    current_nan_streak = 0
+
     cusum = np.zeros(len(flux_series))
 
     if norm=='z':
@@ -4383,23 +4389,30 @@ def onset_determination(ma_sigma, flux_series, cusum_window, avg_end, sigma_mult
 
         # If there are gaps in the data (nans) we want to ignore them.
         # This is done by keeping cusum constant over data gaps. 
-        # During gaps alert signals are not modified, i.e., not incremented nor set to zero.
+        # During gaps alert signals are not modified, i.e., not incremented nor set to zero. Also the
+        # cusum function stays constant.
+        # In addition, the current nan streak IS incremented.
         if np.isnan(norm_channel[i]):
             cusum[i] = cusum[i-1]
+            current_nan_streak += 1
             continue
 
         # Calculate the value for the next cusum entry
         cusum[i] = max(0, norm_channel[i] - k_round + cusum[i-1])
 
-        # check if cusum[i] is above threshold h, if it is -> increment alert
+        # Check if cusum[i] is above threshold h, if it is -> increment alert
         if cusum[i]>h:
             alert += 1
+        # If not, restart the counting of alert signals and the nan counter.
         else:
             alert=0
+            current_nan_streak = 0
 
-        # cusum_window(default:30) subsequent increments to alert means that the onset was found
+        # When the number of alerts exactly matches cusum_window, we have found the onset. Now to choose the correct
+        # timestamp we need to backtrack from the current timestamp first the number of alerts, and then also
+        # the number of nans subsequent to the first alert.
         if alert == cusum_window:
-            onset_time = date[i - alert]
+            onset_time = date[i - alert - current_nan_streak]
             break
 
     # ma = mu_a = background average
