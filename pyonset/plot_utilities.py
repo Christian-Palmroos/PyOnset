@@ -35,6 +35,7 @@ COLOR_SCHEME = {
 
 BACKGROUND_ALPHA = 0.15 # used for the background shading when plotting
 
+NEWLINE = "\n"
 
 def set_fig_ylimits(ax:plt.Axes, ylim:list=None, flux_series:pd.Series=None):
     """
@@ -72,21 +73,54 @@ def set_standard_ticks(ax):
     ax.tick_params(which="minor", length=ticklen-3, width=tickw-0.6)
 
 
-def set_legend(ax: plt.Axes, legend_loc: str, fontsize:int):
+def set_legend(ax: plt.Axes, legend_loc: str, fontsize:int, legend_side="right"):
 
     # Legend placement:
-    if legend_loc=="out":
+    if legend_loc == "out":
         # loc=3 means that the legend handle is "lower left"
         legend_handle, legend_bbox = 3, (1.0, 0.01)
-    elif legend_loc=="in":
+    elif legend_loc == "in":
         # loc=4 means that the legend handle is "lower right"
-        legend_handle, legend_bbox = 4, (1.0, 0.01)
+        if legend_side == "right":
+            legend_handle, legend_bbox = 4, (1.0, 0.01)
+        elif legend_side == "left":
+            legend_handle, legend_bbox = 3, (0.01, 0.01)
         fontsize = fontsize - 2 # Having legend in makes everything bigger -> decrease font a bit
     else:
         raise ValueError(f"Argument legend_loc has to be either 'in' or 'out', not {legend_loc}")
 
     # Sets the legend
     ax.legend(loc=legend_handle, bbox_to_anchor=legend_bbox, fontsize=fontsize)
+
+
+def midnight_format_ticks(ax:plt.Axes) -> None:
+    """
+    Reformats ticklabels such that the day of the month
+    is left only on the first tick and the ticks that
+    are placed at midnight.
+
+    Ticks MUST come in '%H:%M\n%d' format.
+    """
+
+    if NEWLINE not in ax.xaxis.get_majorticklabels()[0].get_text():
+        print(f"Can't reformat ticklabels with no {NEWLINE}.")
+        return None
+
+    new_labels = []
+    for i, label in enumerate(ax.xaxis.get_majorticklabels()):
+        label_text = label.get_text()
+        # The first tick
+        if i==0:
+            new_labels.append(label_text)
+            continue
+        # Not the first, not at midnight
+        elif "00:00" not in label_text:
+            new_text = label_text.split(NEWLINE)[0]
+            new_labels.append(new_text)
+        # Not the first, is midnight
+        else:
+            new_labels.append(label_text)
+    ax.xaxis.set_ticklabels(new_labels)
 
 
 def max_averaging_reso_textbox(max_avg_time:pd.Timedelta, legend_loc:str, ax:plt.Axes):

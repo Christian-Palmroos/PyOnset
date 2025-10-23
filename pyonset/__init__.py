@@ -30,7 +30,7 @@ from pandas.tseries.frequencies import to_offset
 from astropy import constants as const
 from matplotlib import pyplot as plt
 from matplotlib import rcParams
-from matplotlib.dates import DateFormatter
+from matplotlib.dates import DateFormatter, DayLocator, HourLocator
 from matplotlib.offsetbox import AnchoredText
 from sunpy.util.net import download_file
 
@@ -38,6 +38,7 @@ from sunpy import __version__
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.filterwarnings("ignore", category=RuntimeWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
 
 from IPython.display import Markdown
 
@@ -59,7 +60,7 @@ from .datetime_utilities import datetime_to_sec, datetime_nanmedian, detrend_ons
 
 from .calc_utilities import z_score, sigma_norm, k_parameter, k_legacy, k_classic
 from .plot_utilities import set_fig_ylimits, set_standard_ticks, set_legend, max_averaging_reso_textbox, save_figure, \
-                            TITLE_FONTSIZE, STANDARD_FIGSIZE, VDA_FIGSIZE, AXLABEL_FONTSIZE, \
+                            midnight_format_ticks, TITLE_FONTSIZE, STANDARD_FIGSIZE, VDA_FIGSIZE, AXLABEL_FONTSIZE, \
                             TICK_LABELSIZE, TXTBOX_SIZE, LEGEND_SIZE, COLOR_SCHEME
 
 __author__ = "Christian Palmroos"
@@ -1009,8 +1010,9 @@ class Onset(Event):
 
     def final_onset_plot(self, channel, resample:str=None, xlim:tuple|list=None, ylim:tuple|list=None,
             show_background:bool=True, peak:bool=False,
-            onset:str="mode", title:str=None, legend_loc:str="out",
-            savepath:str=None, save:bool=False, fname:str=None) -> dict:
+            onset:str="mode", title:str=None, legend_loc:str="out", legend_side:str="right",
+            savepath:str=None, save:bool=False, fname:str=None,
+            return_figure:bool=False) -> dict:
         """
         Produces the 'final' plot that showcases the intensity time series, the onset time and its 
         confidence intervals and the background selection.
@@ -1042,6 +1044,9 @@ class Onset(Event):
                     A custom title.
         legend_loc : {str}, optional
                     The legend location, either 'in' or 'out'.
+        legend_side : {str}, optional
+                    If legend is 'in', chooses the side at which the legend is located. 'right' or 'left'.
+                    Defaults to 'right'.
         savepath : {str}, optional
                     A path to save the figure.
         save : {bool}, optional
@@ -1049,7 +1054,8 @@ class Onset(Event):
                     are also ALWAYS returned as a dictionary.
         fname : {str}, optional
                     A custom name for the figure (and the corresponding csv) if saved.
-
+        return_figure : {bool}
+                    Returns the figure instead of the dictionary of event information.
         Returns:
         ---------
         event_dict : {dict} Contains 'onset_time', 'confidence_interval1', 
@@ -1063,7 +1069,7 @@ class Onset(Event):
         SCND_CONF_START = 4
         SCND_CONF_END = 5
         VALID_ONSET_OPTIONS = ("mode", "median")
-        HM_FORMAT = DateFormatter("%H:%M")
+        HMD_FORMAT = DateFormatter(f"%H:%M{NEWLINE}%d")
         ONSETTIME_FORMAT = "%Y-%m-%d\n%H:%M:%S"
         HMINSEC_FORMAT = "%H:%M:%S"
         DEFAULT_MINUS_OFFSET_HOURS = 5
@@ -1135,8 +1141,12 @@ class Onset(Event):
         # Set the x-axis settings
         ax.xaxis_date()
         ax.set_xlabel(f"Time ({onset_time.date()})", fontsize=AXLABEL_FONTSIZE)
-        ax.xaxis.set_major_formatter(HM_FORMAT)
         ax.set_xlim(xlim)
+        ax.xaxis.set_major_formatter(HMD_FORMAT)
+
+        # Modify the ticks such that the day is removed from all but the 
+        # first and midnight ticks
+        midnight_format_ticks(ax=ax)
 
         # The y-axis settings:
         ax.set_yscale("log")
@@ -1179,7 +1189,7 @@ class Onset(Event):
 
         # Finalize the plot with tickmarks, title and legend
         set_standard_ticks(ax=ax)
-        set_legend(ax=ax, legend_loc=legend_loc, fontsize=LEGEND_SIZE)
+        set_legend(ax=ax, legend_loc=legend_loc, fontsize=LEGEND_SIZE, legend_side=legend_side)
 
         if title is None:
             title =self._get_title(energy_str=en_channel_string, time_resolution=time_resolution)
@@ -1222,6 +1232,8 @@ class Onset(Event):
         # Finally show the plot
         plt.show()
 
+        if return_figure:
+            return (fig, ax)
         return event_dict
 
 
