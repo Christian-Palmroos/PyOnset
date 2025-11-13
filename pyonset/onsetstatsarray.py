@@ -203,7 +203,7 @@ class OnsetStatsArray:
 
         ax.grid(visible=grid, axis="both")
 
-        integration_time_str = f"{self.integration_times[integration_time_index]} integration time" if pd.Timedelta(self.integration_times[integration_time_index]) != self.linked_object.get_minimum_cadence() else f"{self.integration_times[integration_time_index]} data"
+        integration_time_str = f"{self.integration_times[integration_time_index]} integration time" if pd.Timedelta(self.integration_times[integration_time_index]) != self.linked_object.native_resolution else f"{self.integration_times[integration_time_index]} data"
 
         ax.set_title(f"Probability density for {self.linked_object.background.bootstraps} onset times\n{integration_time_str}", fontsize=TITLE_FONTSIZE)
         ax.xaxis.set_major_formatter(DateFormatter("%H:%M"))

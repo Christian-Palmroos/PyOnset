@@ -73,13 +73,14 @@ C_SQUARED = const.c.value*const.c.value
 ELECTRON_IDENTIFIERS = ("electrons", "electron", 'e')
 PROTON_IDENTIFIERS = ("protons", "proton", "ions", "ion", 'p', 'i', 'H')
 
-SEPPY_SPACECRAFT = ("sta", "stb", "solo", "psp", "wind", "soho")
+SEPPY_SPACECRAFT = ("sta", "stb", "solo", "psp", "wind", "soho", "bepi")
 SEPPY_SENSORS = {"sta" : ("sept", "het"),
                  "stb" : ("sept", "het"),
                  "solo" : ("ept", "het"),
                  "psp" : ("isois_epilo", "isois_epihi"),
                  "wind" : ("3dp"),
-                 "soho" : ("erne-hed", "ephin")
+                 "soho" : ("erne-hed", "ephin"),
+                 "bepi" : ("sixs-p")
                  }
 
 # SOHO / EPHIN e300 channel is invalid from this date onwards
@@ -113,9 +114,6 @@ class Onset(Event):
             if self.spacecraft not in SEPPY_SPACECRAFT:
                 raise Exception(f"Note that {self.spacecraft} is not a SEPpy-compatible spacecraft. You need to provide your own data with the keyword: 'data'.")
 
-            # if self.sensor not in SEPPY_SENSORS[self.spacecraft]:
-            #     raise Exception(f"Note that {self.sensor} is not a recognized instrument of {self.spacecraft}. You need to provide your own data with the keyword: 'data'.")
-
         else:
 
             # Copy-pasted from seppy.tools.Event initializer, to keep internal format of variables
@@ -126,6 +124,8 @@ class Onset(Event):
                 spacecraft = "sta"
             if spacecraft == "STEREO-B":
                 spacecraft = "stb"
+            if spacecraft.lower()=="bepicolombo":
+                spacecraft = "bepi"
 
             if sensor in ["ERNE-HED"]:
                 sensor = "ERNE"
@@ -237,8 +237,8 @@ class Onset(Event):
         # A dictionary that holds the maximum averaging times for each channel
         self.max_avg_times = {}
 
-        # This is a dictionary that holds the information of each instrument's minimum time resolution. That value
-        # will be used in the case that cusum-bootstrap yields uncertainty smaller than that.
+        # This is a dictionary that holds the information of each instrument's minimum time resolution.
+        # In the current state of the software this dictionary does not serve any real practical purpose.
         self.minimum_cadences = {
             "bepicolombo_sixs-p" : pd.Timedelta("8 s"),
             "psp_isois-epihi" : pd.Timedelta("1 min"),
@@ -272,6 +272,11 @@ class Onset(Event):
                 self.viewing = None
             else:
                 self.viewing = self.viewing
+
+        # Sixs has sides, but the input is the index of the side. Check that it's a char, not an int.
+        if self.sensor.lower()=="sixs-p":
+            if isinstance(self.viewing,int):
+                self.viewing = str(self.viewing)
 
         if returns:
             return self.viewing
@@ -369,7 +374,8 @@ class Onset(Event):
             "solo" : "Solar Orbiter",
             "soho" : "SOHO",
             "wind" : "Wind",
-            "psp" : "Parker Solar Probe"
+            "psp" : "Parker Solar Probe",
+            "bepi" : "BepiColombo"
         }
 
         species_abbreviations_dict = {
@@ -402,6 +408,10 @@ class Onset(Event):
         if spacecraft=="Wind":
             if len(viewing)==1:
                 viewing = f"Sector {viewing}"
+
+        # Bepi viewing format:
+        if spacecraft=="BepiColombo":
+            viewing = f"Side{viewing}"
 
         title_str = f"{spacecraft} / {sensor}$^{{\\mathrm{{{viewing}}}}}${NEWLINE}{energy_str} {species}"
 
@@ -606,6 +616,9 @@ class Onset(Event):
                 en_channel_string = channels
 
             self.last_used_channel = channels
+
+        # Save the native resolution to a class attribute.
+        self.native_resolution = get_time_reso(series=flux_series)
 
         # Glitches from the data should really be erased BEFORE resampling data
         if erase is not None:
@@ -1509,10 +1522,14 @@ class Onset(Event):
 
         # These apply regardless of which series we choose, as they all have the same resolution and hence cusum_window
         if not self.custom_data:
-            if not resample:
-                time_reso = f"{int(self.get_minimum_cadence().seconds/60)} min" if self.get_minimum_cadence().seconds > 59 else f"{int(self.get_minimum_cadence().seconds)} s"
-            else:
-                time_reso = get_time_reso(list_of_series[0])
+            # if not resample:
+            #     time_reso = f"{int(self.get_minimum_cadence().seconds/60)} min" if self.get_minimum_cadence().seconds > 59 else f"{int(self.get_minimum_cadence().seconds)} s"
+            # else:
+            #     time_reso = get_time_reso(list_of_series[0])
+            # At the current stage there should be no reason to resort to pre-defined minimum cadences. This is why
+            # on 2025-11-13 I'm commenting the above part out. get_time_reso() will return the most prevalent 
+            # time differential between consecutive data points.
+            time_reso = get_time_reso(list_of_series[0])
 
         # in case of custom data: 
         else:
@@ -2015,18 +2032,21 @@ class Onset(Event):
                     df_flux = df_flux*1e6
                     en_channel_string = self.current_e_energies['channels_dict_df']['Bins_Text'][f'ENERGY_{channels}']
 
-        if self.spacecraft.lower() == 'bepi':
+        if self.spacecraft.lower() == "bepi":
             if type(channels) == list:
                 if len(channels) == 1:
                     # convert single-element "channels" list to integer
                     channels = channels[0]
-                    if self.species == 'e':
-                        df_flux = self.current_df_e[f'E{channels}']
-                        en_channel_string = self.current_energies['Energy_Bin_str'][f'E{channels}']
-                    if self.species in ['p', 'i']:
-                        df_flux = self.current_df_i[f'P{channels}']
-                        en_channel_string = self.current_energies['Energy_Bin_str'][f'P{channels}']
+                    if self.species in ELECTRON_IDENTIFIERS:
+                        df_flux = self.current_df_e[f"Side{viewing}_E{channels}"]
+                        en_channel_string = self.current_energies[f"Side{viewing}_Electron_Bins_str"][f"E{channels}"]
+                    if self.species in PROTON_IDENTIFIERS:
+                        df_flux = self.current_df_i[f"Side{viewing}_P{channels}"]
+                        en_channel_string = self.current_energies[f"Side{viewing}_Proton_Bins_str"][f"P{channels}"]
+                    # Finally remove timezone-awareness from bepi data
+                    df_flux.index = df_flux.index.tz_localize(None)
                 else:
+                    raise NotImplementedError("Combining channels not yet available for SIXS-P data!")
                     if self.species == 'e':
                         df_flux, en_channel_string = calc_av_en_flux_sixs(self.current_df_e, channels, self.species)
                     if self.species in ['p', 'i']:
@@ -3261,18 +3281,27 @@ class Onset(Event):
 
                 # Most of the high-energy particle instruments have a time resolution of 1 min, so don't do averaging for them
                 # if uncertainty is something like 1 min 07 sec
-                if first_run_uncertainty_mins < 2 and self.spacecraft not in FINE_CADENCE_SC:
+                if  not first_run_uncertainty_mins > pd.Timedelta(self.native_resolution).seconds//60 and self.spacecraft not in FINE_CADENCE_SC:
 
-                    stats_arr.calculate_weighted_uncertainty()
+                    stats_arr.calculate_weighted_uncertainty(weight_type="inverse_variance")
 
                     self.max_avg_times[channels] = pd.Timedelta(minutes=first_run_uncertainty_mins)
+
+                    if prints:
+                        print("No averaging")
                     return stats_arr
 
                 else:
                     # SolO instruments and Wind/3DP have high cadence (< 1 min), so start integrating from 1 minute measurements
                     # unless limit_computation_time is enabled
                     if not self.custom_data:
-                        start_idx = 1 if (self.spacecraft in FINE_CADENCE_SC and not limit_computation_time) else 2
+                        if self.spacecraft in FINE_CADENCE_SC and not limit_computation_time:
+                            start_idx = 1
+                        else:
+                            # If not, start resampling from native resolution + 1 minute
+                            # For 1 min data this reads: 60//60 + 1 = 1 + 1 = 2
+                            # For 2 min data this reads: 120//60 + 1 = 2 + 1 = 3
+                            start_idx = pd.Timedelta(self.native_resolution).seconds//60 + 1
 
                     else:
                         # In case of custom data, start from the base cadence. Except for if the cadence is fine, then
@@ -3294,7 +3323,7 @@ class Onset(Event):
                         upto_averaging_display = first_run_uncertainty_mins
 
                     if prints:
-                        print(f"Averaging up to {upto_averaging_display} minutes") if upto_averaging_display > 0 else print("Not averaging.")
+                        print(f"Averaging from {start_idx} to {upto_averaging_display} minutes") if upto_averaging_display > 0 else print("Not averaging.")
 
             else:
 
