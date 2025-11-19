@@ -234,7 +234,7 @@ class BootstrapWindow:
 
         # Lines for mu=sigma and mu=sigma^2
         ax.plot(mus, mus, ls="--", color="black", zorder=3, label=r"$\mu = \sigma$")
-        ax.plot(mus, sigmas**2, lw=1.0, color="black", zorder=4, label=r"$\mu = \sigma^2$")
+        ax.plot(sigmas**2, mus, lw=1.0, color="black", zorder=4, label=r"$\mu = \sigma^2$")
 
         # Plotting user mu and sigma
         ax.scatter(mu, sigma, s=125, color='k')
