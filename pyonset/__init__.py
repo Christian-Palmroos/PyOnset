@@ -1460,6 +1460,10 @@ class Onset(Event):
         else:
             flux_series, self.recently_examined_channel_str = self.data[channels[0]], channels[0]
 
+        # make sure thta native resolution information exists
+        if self.native_resolution is None:
+            self.native_resolution = get_time_reso(flux_series)
+
         # Create a timedelta representation of resample, for convenience
         resample_td = pd.Timedelta(resample)
         # By default there will be a list containing timeseries indices of varying origins of offset
@@ -3289,10 +3293,6 @@ class Onset(Event):
             # If stop is not defined, then average up to predefined (default or first_run_uncertainty_mins) time
             if not stop:
 
-                print(f"first_uncertainty_run_mins: {first_run_uncertainty_mins}")
-                print(f"native_resolution: {self.native_resolution}")
-                print(f"native_resolution.seconds//60: {pd.Timedelta(self.native_resolution).seconds//60}")
-
                 # Most of the high-energy particle instruments have a time resolution of 1 min, so don't do averaging for them
                 # if uncertainty is something like 1 min 07 sec
                 if first_run_uncertainty_mins <= pd.Timedelta(self.native_resolution).seconds//60 and self.spacecraft not in FINE_CADENCE_SC:
@@ -3752,12 +3752,12 @@ class Onset(Event):
         """
         Returns the confidence intervals of an onset distribution. Includes a check to make sure
         that the uncertainty intervals are not smaller than the data time resolution.
-        
+
         Parameters:
         -----------
         percentiles : tuple or a list of tuples
                         A tuple of percentiles, or a list containing the pairs of percentiles.
-        
+
         Returns:
         -----------
         confidence_intervals : tuple or a list of tuples
@@ -3775,7 +3775,7 @@ class Onset(Event):
 
         # Finally check that the percentiles make sense (in that they are not less than the native data resolution of the instrument)
         if not time_reso:
-            time_reso = self.get_minimum_cadence()
+            time_reso = self.native_resolution
         confidence_intervals = check_confidence_intervals(confidence_intervals, time_reso=time_reso)
 
         return confidence_intervals

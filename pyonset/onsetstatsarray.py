@@ -195,8 +195,11 @@ class OnsetStatsArray:
         ax.axvline(stats["median_onset"], linewidth=2.0, color=COLOR_SCHEME["median"], label=f"median {str(stats['median_onset'].time())[:8]}", zorder=3)
 
         # 1 -and 2-sigma intervals as red and blue dashed lines
-        ax.axvspan(xmin=stats["2-sigma_confidence_interval"][0], xmax=stats["2-sigma_confidence_interval"][1], color=COLOR_SCHEME["2-sigma"], alpha=0.15, label="~95 % confidence", zorder=1)
-        ax.axvspan(xmin=stats["1-sigma_confidence_interval"][0], xmax=stats["1-sigma_confidence_interval"][1], color=COLOR_SCHEME["1-sigma"], alpha=0.15, label="~68 % confidence", zorder=1)
+        sigma2_lower, sigma2_upper = stats["2-sigma_confidence_interval"][0], stats["2-sigma_confidence_interval"][1]
+        sigma1_lower, sigma1_upper = stats["1-sigma_confidence_interval"][0], stats["1-sigma_confidence_interval"][1]
+
+        ax.axvspan(xmin=sigma2_lower, xmax=sigma2_upper, color=COLOR_SCHEME["2-sigma"], alpha=0.15, label="~95 % confidence", zorder=1)
+        ax.axvspan(xmin=sigma1_lower, xmax=sigma1_upper, color=COLOR_SCHEME["1-sigma"], alpha=0.15, label="~68 % confidence", zorder=1)
 
         ax.set_xlabel(f"Time ({stats['mean_onset'].strftime('%Y-%m-%d')})", fontsize=AXLABEL_FONTSIZE)
         ax.set_ylabel("PD", fontsize=AXLABEL_FONTSIZE)
@@ -695,7 +698,7 @@ class OnsetStatsArray:
             self.w_sigma1_low_bound = self.w_mode - min_separation
         if self.w_mode - self.w_sigma2_low_bound < min_separation:
             self.w_sigma2_low_bound = self.w_mode - min_separation
-        
+
         if self.w_sigma1_upper_bound - self.w_mode < min_separation:
             self.w_sigma1_upper_bound = self.w_mode + min_separation
         if self.w_sigma2_upper_bound - self.w_mode < min_separation:
