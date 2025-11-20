@@ -186,7 +186,7 @@ class OnsetStatsArray:
         if not ylims:
             ylims = (0, np.nanmax(bar_heights)+0.02)
         ax.set_ylim(ylims)
-    
+
         set_standard_ticks(ax=ax)
 
         # Mean, mode and median onset times as vertical solid lines
