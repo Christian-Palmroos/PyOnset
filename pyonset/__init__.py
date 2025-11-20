@@ -165,6 +165,9 @@ class Onset(Event):
         # Everytime an onset is found any way, the last used channel should be updated
         self.last_used_channel = np.nan
 
+        # Holds space for the native resolution of the data
+        self.native_resolution = None
+
         # The background window is stored to this attribute when cusum_onset() is called with a BootStrapWindow input
         self.background = None
 
@@ -3238,17 +3241,24 @@ class Onset(Event):
         # only if data is NOT custom data.
         if self.spacecraft in FINE_CADENCE_SC and limit_computation_time and not self.custom_data:
             first_resample = "1 min"
+            if self.native_resolution is None:
+                self.native_resolution = get_time_reso(self.choose_flux_series(channels=channels, viewing=viewing)[0])
         # Check if cadence is fine also for custom data
         elif self.custom_data:
             if custom_data_dt is None:
                 custom_data_dt = self.data.index.freq if self.data.index.freq is not None else get_time_reso(self.data)
-
             # A fine cadence means less than 1 minute
             freq_is_fine = (pd.Timedelta(custom_data_dt) < pd.Timedelta("1 min"))
 
             first_resample = "1 min" if freq_is_fine and limit_computation_time else None
+            if self.native_resolution is None:
+                self.native_resolution = get_time_reso(self.data)
 
         else:
+            # Could be custom data or some other reason for native data resolution not being
+            # defined at this point
+            if self.native_resolution is None:
+                self.native_resolution = get_time_reso(self.choose_flux_series(channels=channels, viewing=viewing)[0])
             first_resample = None
 
         # SOHO/EPHIN E300 is deactivated from 2017 onward -> there will be no reasonable onset there
@@ -3279,9 +3289,13 @@ class Onset(Event):
             # If stop is not defined, then average up to predefined (default or first_run_uncertainty_mins) time
             if not stop:
 
+                print(f"first_uncertainty_run_mins: {first_run_uncertainty_mins}")
+                print(f"native_resolution: {self.native_resolution}")
+                print(f"native_resolution.seconds//60: {pd.Timedelta(self.native_resolution).seconds//60}")
+
                 # Most of the high-energy particle instruments have a time resolution of 1 min, so don't do averaging for them
                 # if uncertainty is something like 1 min 07 sec
-                if  not first_run_uncertainty_mins > pd.Timedelta(self.native_resolution).seconds//60 and self.spacecraft not in FINE_CADENCE_SC:
+                if first_run_uncertainty_mins <= pd.Timedelta(self.native_resolution).seconds//60 and self.spacecraft not in FINE_CADENCE_SC:
 
                     stats_arr.calculate_weighted_uncertainty(weight_type="inverse_variance")
 
