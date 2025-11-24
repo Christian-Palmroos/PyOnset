@@ -45,6 +45,7 @@ from IPython.display import Markdown
 import seppy.util as util
 from seppy.loader.psp import (calc_av_en_flux_PSP_EPIHI,
                               calc_av_en_flux_PSP_EPILO, psp_isois_load)
+from solo_epd_loader import combine_channels as solo_epd_combine_channels
 from seppy.loader.soho import calc_av_en_flux_ERNE, soho_load
 from seppy.loader.stereo import calc_av_en_flux_HET as calc_av_en_flux_ST_HET
 from seppy.loader.stereo import calc_av_en_flux_SEPT, stereo_load
@@ -1903,39 +1904,10 @@ class Onset(Event):
 
         if self.spacecraft == 'solo':
 
-            if self.sensor == 'het':
-
-                if self.species in ['p', 'i']:
-
-                    df_flux, en_channel_string =\
-                        self.calc_av_en_flux_HET(self.current_df_i,
-                                                 self.current_energies,
-                                                 channels)
-                elif self.species == 'e':
-
-                    df_flux, en_channel_string =\
-                        self.calc_av_en_flux_HET(self.current_df_e,
-                                                 self.current_energies,
-                                                 channels)
-
-            elif self.sensor == 'ept':
-
-                if self.species in ['p', 'i']:
-
-                    df_flux, en_channel_string =\
-                        self.calc_av_en_flux_EPT(self.current_df_i,
-                                                 self.current_energies,
-                                                 channels)
-                elif self.species == 'e':
-
-                    df_flux, en_channel_string =\
-                        self.calc_av_en_flux_EPT(self.current_df_e,
-                                                 self.current_energies,
-                                                 channels)
-
-            else:
-                invalid_sensor_msg = "Invalid sensor!"
-                raise Exception(invalid_sensor_msg)
+                if self.species in ELECTRON_IDENTIFIERS:
+                    solo_epd_combine_channels(self.current_df_e, self.current_energies, channels, sensor=self.sensor.upper())
+                else:
+                    solo_epd_combine_channels(self.current_df_i, self.current_energies, channels, sensor=self.sensor.upper())
 
         if self.spacecraft[:2] == 'st':
 
