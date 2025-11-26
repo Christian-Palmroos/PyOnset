@@ -3756,7 +3756,7 @@ class Onset(Event):
 
     def tsa_per_channel(self, radial_distance=None, path_length=None, solar_wind_speed=400, onset_times=None) -> dict:
         """
-        Applies a time shift to all available energy channels accoridng to their kinetic energies
+        Applies a time shift to all available energy channels according to their kinetic energies
         and an assumed path of Parker spiral arc that they travelled.
 
         Parameters:
@@ -3810,11 +3810,11 @@ class Onset(Event):
         return tsa_times
 
 
-    def tsa_plot(self, radial_distance=None, path_length=None, solar_wind_speed=400, ylim=None, 
+    def tsa_scatter_plot(self, radial_distance=None, path_length=None, solar_wind_speed=400, ylim=None, 
                  plot=True, save=False, savepath=None, onset_times=None):
         """
         Applies tsa on all channels, and produces a scatter plot.
-        
+
         Parameters:
         -----------
         radial_distance : {float} Radial heliocentric distance in AUs. Either this or <path_length> has to be specified.
@@ -3833,7 +3833,7 @@ class Onset(Event):
         savepath : {str} A path to save the plot, if the parameter <save> is enabled.
 
         onset_times : {dict} User-input onset times. If not give, default to using self.onset_statistics
-        
+
         Returns:
         --------
         tsa_results : {dict} 
