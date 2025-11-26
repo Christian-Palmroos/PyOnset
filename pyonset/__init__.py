@@ -8,7 +8,7 @@ A library that holds the Onset class for PyOnset.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2025-11-19
+@Updated: 2025-11-26
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -1905,9 +1905,9 @@ class Onset(Event):
         if self.spacecraft == 'solo':
 
                 if self.species in ELECTRON_IDENTIFIERS:
-                    solo_epd_combine_channels(self.current_df_e, self.current_energies, channels, sensor=self.sensor.upper())
+                    df_flux, en_channel_string = solo_epd_combine_channels(self.current_df_e, self.current_energies, channels, sensor=self.sensor.upper())
                 else:
-                    solo_epd_combine_channels(self.current_df_i, self.current_energies, channels, sensor=self.sensor.upper())
+                    df_flux, en_channel_string = solo_epd_combine_channels(self.current_df_i, self.current_energies, channels, sensor=self.sensor.upper())
 
         if self.spacecraft[:2] == 'st':
 
@@ -1972,10 +1972,11 @@ class Onset(Event):
                         if len(channels) == 1:
                             channels = channels[0]
                         else:
-                            print("No multi-channel support for SOHO/EPHIN included yet! Select only one single channel.")
+                            raise NotImplementedError("No multi-channel support for SOHO/EPHIN included yet! Select only one single channel.")
                     if self.species == 'e':
+                        energy_labels_key = "energy_labels"
                         df_flux = self.current_df_e[f'E{channels}']
-                        en_channel_string = self.current_energies[f'E{channels}']
+                        en_channel_string = self.current_energies[energy_labels_key][f"E{channels}"]
 
             except KeyError:
                 raise Exception(f"{channels} is an invalid channel or a combination of channels!")
@@ -2416,7 +2417,7 @@ class Onset(Event):
         if len(onset_times)==0:
 
             # Include a check here to get rid of channel 300 in EPHIN data after the switch-off
-            if self.sensor == "ephin" and self.start_date > EPHIN_300_INVALID_ONWARDS:
+            if self.sensor == "ephin" and self.start_date > EPHIN_300_INVALID_ONWARDS.date():
                 channels = [c_id for c_id in channels if c_id != 300]
 
             for ch in channels:
@@ -2463,7 +2464,7 @@ class Onset(Event):
                 channels1 = Onset.get_all_channels()
 
                 # Include a check here to get rid of channel 300 in EPHIN data after the switch-off
-                if Onset.sensor == "ephin" and Onset.start_date > EPHIN_300_INVALID_ONWARDS:
+                if Onset.sensor == "ephin" and Onset.start_date > EPHIN_300_INVALID_ONWARDS.date():
                     channels1 = [c_id for c_id in channels1 if c_id != 300]
 
                 # If there was no input for onset times, init an empty array and fill it up with values from the object
