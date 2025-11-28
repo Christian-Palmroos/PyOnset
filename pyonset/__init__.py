@@ -8,7 +8,7 @@ A library that holds the Onset class for PyOnset.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2025-11-26
+@Updated: 2025-11-28
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -3068,9 +3068,9 @@ class Onset(Event):
                 # If no custom name for the figure, generate it here
                 if not isinstance(fname, str):
                     if Onset:
-                        fname = f"{savepath}{os.sep}VDA_{spacecraft}_{instrument}({self.viewing})+{Onset.sensor}_{species_title}_{date_of_event}.png" if self.viewing else f"{savepath}{os.sep}VDA_{spacecraft}_{instrument}+{Onset.sensor}_{species_title}_{date_of_event}.png"
+                        fname = f"VDA_{spacecraft}_{instrument}({self.viewing})+{Onset.sensor}_{species_title}_{date_of_event}.png" if self.viewing else f"VDA_{spacecraft}_{instrument}+{Onset.sensor}_{species_title}_{date_of_event}.png"
                     else:
-                        fname = f"{savepath}{os.sep}VDA_{spacecraft}_{instrument}_{self.viewing}_{species_title}_{date_of_event}.png" if self.viewing else f"{savepath}{os.sep}VDA_{spacecraft}_{instrument}_{species_title}_{date_of_event}.png"
+                        fname = f"VDA_{spacecraft}_{instrument}_{self.viewing}_{species_title}_{date_of_event}.png" if self.viewing else f"VDA_{spacecraft}_{instrument}_{species_title}_{date_of_event}.png"
 
                 save_figure(figure=fig, fname=fname, savepath=savepath)
 
