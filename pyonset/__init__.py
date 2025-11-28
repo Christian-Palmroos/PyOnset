@@ -1,5 +1,5 @@
 
-#from .version import version as __version__
+from .version import version as __version__
 
 # __all__ = []  # defines which functions, variables etc. will be loaded when running "from pyonset import *"
 
@@ -34,7 +34,7 @@ from matplotlib.dates import DateFormatter, DayLocator, HourLocator
 from matplotlib.offsetbox import AnchoredText
 from sunpy.util.net import download_file
 
-from sunpy import __version__
+# from sunpy import __version__
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.filterwarnings("ignore", category=RuntimeWarning)
