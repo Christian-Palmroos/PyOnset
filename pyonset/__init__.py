@@ -8,7 +8,7 @@ A library that holds the Onset class for PyOnset.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2025-11-28
+@Updated: 2025-12-02
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -232,6 +232,9 @@ class Onset(Event):
             "psp_isois-epihi_p" : np.arange(15, dtype=int),
 
             "psp_isois-epilo_e" : np.arange(12, dtype=int),
+
+            "bepi_sixs-p_e" : np.arange(1,8, dtype=int),
+            "bepi_sixs-p_p" : np.arange(1,10, dtype=int)
         }
 
         # This dictionary holds the median onset time and weighted confidence intervals derived by CUSUM-bootstrap 
@@ -307,29 +310,8 @@ class Onset(Event):
         """
         return self.get_channel_energy_values(returns="str")[self.last_used_channel]
 
-    def get_minimum_cadence(self):
-        try:
-            return self.minimum_cadences[f"{self.spacecraft}_{self.sensor}"]
-        except KeyError:
-            # return pd.Timedelta(self.data.index.freq)
-            return pd.Timedelta(get_time_reso(self.data))
-
-    # Comment out, to be deleted in a later patch for redundancy.
-    # def get_time_resolution_str(self, resample):
-    #     # Choose resample as the averaging string if it exists
-    #     if resample:
-    #         time_reso_str = f"{resample} averaging" 
-    #     # If not, check if the native cadence is less than 60. If yes, address the cadence in seconds
-    #     elif self.get_minimum_cadence().seconds<60:
-    #         time_reso_str = f"{self.get_minimum_cadence().seconds} s data"
-    #     # If at least 60 seconds, address the cadence in minutes
-    #     else:
-    #         try:
-    #             time_reso_str = f"{int(self.get_minimum_cadence().seconds/60)} min data"
-    #         except ValueError:
-    #             time_reso_str = "Unidentified time resolution"
-
-    #     return time_reso_str
+    def get_native_cadence(self):
+        return self.native_resolution
 
     def get_custom_channel_energies(self):
         """

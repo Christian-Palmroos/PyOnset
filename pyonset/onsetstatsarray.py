@@ -419,8 +419,8 @@ class OnsetStatsArray:
 
         set_legend(ax=ax, legend_loc=legend_loc, fontsize=LEGEND_SIZE)
 
-        int_time_str = f"{self.integration_times[integration_time_index]} integration time" if pd.Timedelta(self.integration_times[integration_time_index]) != self.linked_object.get_minimum_cadence() else f"{self.integration_times[integration_time_index]} data"
-        # int_time_str = f"{self.integration_times[index]} integration time" if index != 0 else f"{int(self.linked_object.get_minimum_cadence().seconds/60)} min data" if self.linked_object.get_minimum_cadence().seconds>59 else f"{self.linked_object.get_minimum_cadence().seconds} s data"
+        int_time_str = f"{self.integration_times[integration_time_index]} integration time" if pd.Timedelta(self.integration_times[integration_time_index]) != self.linked_object.get_native_cadence() else f"{self.integration_times[integration_time_index]} data"
+        # int_time_str = f"{self.integration_times[index]} integration time" if index != 0 else f"{int(self.linked_object.get_native_cadence().seconds/60)} min data" if self.linked_object.get_native_cadence().seconds>59 else f"{self.linked_object.get_native_cadence().seconds} s data"
         ax.set_title(f"{self.spacecraft.upper()}/{self.sensor.upper()} ({self.channel_str}) {self.linked_object.s_identifier}\nOnset distribution ({int_time_str})", fontsize=TITLE_FONTSIZE)
 
         if save:
@@ -517,8 +517,8 @@ class OnsetStatsArray:
         set_legend(ax=ax, legend_loc=legend_loc, fontsize=LEGEND_SIZE)
 
         # particle_str = "electrons" if self.species=='e' else "protons" if self.species=='p' else "ions"
-        int_time_str = f"{self.integration_times[integration_time_index]} integration time" if pd.Timedelta(self.integration_times[integration_time_index]) != self.linked_object.get_minimum_cadence() else f"{self.integration_times[integration_time_index]} data"
-        # int_time_str = f"{self.integration_times[index]} integration time" if index != 0 else f"{int(self.linked_object.get_minimum_cadence().seconds/60)} min data" if self.linked_object.get_minimum_cadence().seconds>59 else f"{self.linked_object.get_minimum_cadence().seconds} s data"
+        int_time_str = f"{self.integration_times[integration_time_index]} integration time" if pd.Timedelta(self.integration_times[integration_time_index]) != self.linked_object.get_native_cadence() else f"{self.integration_times[integration_time_index]} data"
+        # int_time_str = f"{self.integration_times[index]} integration time" if index != 0 else f"{int(self.linked_object.get_native_cadence().seconds/60)} min data" if self.linked_object.get_native_cadence().seconds>59 else f"{self.linked_object.get_native_cadence().seconds} s data"
         ax.set_title(f"{self.spacecraft.upper()}/{self.sensor.upper()} ({self.channel_str}) {self.linked_object.s_identifier}\nOnset statistics ({int_time_str})", fontsize=TITLE_FONTSIZE)
 
         if save:
@@ -570,8 +570,8 @@ class OnsetStatsArray:
 
         # rcParams["font.size"] = 20
 
-        int_time_str = f"{self.integration_times[index]} integration time" if pd.Timedelta(self.integration_times[index]) != self.linked_object.get_minimum_cadence() else f"{self.integration_times[index]} data"
-        # int_time_str = f"{self.integration_times[index]} integration time" if index != 0 else f"{int(self.linked_object.get_minimum_cadence().seconds/60)} min data" if self.linked_object.get_minimum_cadence().seconds>59 else f"{self.linked_object.get_minimum_cadence().seconds} s data"
+        int_time_str = f"{self.integration_times[index]} integration time" if pd.Timedelta(self.integration_times[index]) != self.linked_object.get_native_cadence() else f"{self.integration_times[index]} data"
+        # int_time_str = f"{self.integration_times[index]} integration time" if index != 0 else f"{int(self.linked_object.get_native_cadence().seconds/60)} min data" if self.linked_object.get_native_cadence().seconds>59 else f"{self.linked_object.get_native_cadence().seconds} s data"
 
         # Settings for axes
         ax.xaxis_date()
@@ -691,7 +691,7 @@ class OnsetStatsArray:
         """
 
         # We will not allow for a separation of less than the smalles integration time used
-        #min_separation = self.linked_object.get_minimum_cadence()/2
+        #min_separation = self.linked_object.get_native_cadence()/2
         min_separation = pd.Timedelta(self.integration_times[0])/2
 
         if self.w_mode - self.w_sigma1_low_bound < min_separation:
