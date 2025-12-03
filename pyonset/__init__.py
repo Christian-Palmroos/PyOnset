@@ -49,6 +49,7 @@ from solo_epd_loader import combine_channels as solo_epd_combine_channels
 from seppy.loader.soho import calc_av_en_flux_ERNE, soho_load
 from seppy.loader.stereo import calc_av_en_flux_HET as calc_av_en_flux_ST_HET
 from seppy.loader.stereo import calc_av_en_flux_SEPT, stereo_load
+from seppy.util import calc_av_en_flux_sixs
 from seppy.tools import Event
 
 # Local import
@@ -197,7 +198,7 @@ class Onset(Event):
             self.s_identifier = self.species
 
         # This is a check to make sure viewing is correctly set for single-aperture instruments
-        if self.viewing:
+        if self.viewing is not None:
             self.check_viewing()
 
         self.all_channels = {
@@ -1995,9 +1996,9 @@ class Onset(Event):
                     en_channel_string = self.current_e_energies['channels_dict_df']['Bins_Text'][f'ENERGY_{channels}']
 
         if self.spacecraft.lower() == "bepi":
-            if type(channels) == list:
+            if isinstance(channels, list):
                 if len(channels) == 1:
-                    # convert single-element "channels" list to integer
+                    # convert single-element "channels" list back to an integer
                     channels = channels[0]
                     if self.species in ELECTRON_IDENTIFIERS:
                         df_flux = self.current_df_e[f"Side{viewing}_E{channels}"]
@@ -2005,14 +2006,18 @@ class Onset(Event):
                     if self.species in PROTON_IDENTIFIERS:
                         df_flux = self.current_df_i[f"Side{viewing}_P{channels}"]
                         en_channel_string = self.current_energies[f"Side{viewing}_Proton_Bins_str"][f"P{channels}"]
-                    # Finally remove timezone-awareness from bepi data
-                    df_flux.index = df_flux.index.tz_localize(None)
                 else:
-                    raise NotImplementedError("Combining channels not yet available for SIXS-P data!")
                     if self.species == 'e':
                         df_flux, en_channel_string = calc_av_en_flux_sixs(self.current_df_e, channels, self.species)
                     if self.species in ['p', 'i']:
                         df_flux, en_channel_string = calc_av_en_flux_sixs(self.current_df_i, channels, self.species)
+
+                # Finally remove timezone-awareness from bepi data
+                df_flux.index = df_flux.index.tz_localize(None)
+
+            # channels not a list?
+            else:
+                raise TypeError(f"Parameter 'channels' is of incorrect type {type(channels)}. Correct type is list.")
 
         if self.spacecraft.lower() == 'psp':
             if self.sensor.lower() == 'isois-epihi':
