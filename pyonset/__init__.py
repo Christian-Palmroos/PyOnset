@@ -604,8 +604,13 @@ class Onset(Event):
 
             self.last_used_channel = channels
 
-        # Save the native resolution to a class attribute.
+        # Save the native resolution to .07a class attribute.
         self.native_resolution = get_time_reso(series=flux_series)
+
+        print(flux_series.idxmin(), flux_series.min())
+        print(flux_series.idxmax(), flux_series.max())
+        # Before doing anything with the data, make sure that there are no negative intensity values there
+        flux_series = delete_negatives(series=flux_series)
 
         # Glitches from the data should really be erased BEFORE resampling data
         if erase is not None:
@@ -613,9 +618,15 @@ class Onset(Event):
         else:
             glitches = None
 
+        print(flux_series.idxmin(), flux_series.min())
+        print(flux_series.idxmax(), flux_series.max())
+
         # Resample data if requested
         if resample is not None:
             flux_series = util.resample_df(flux_series, resample)
+
+        print(flux_series.idxmin(), flux_series.min())
+        print(flux_series.idxmax(), flux_series.max())
 
         # Here just to make sure, check that the flux series is cut correctly
         if len(flux_series) == 0:
@@ -787,9 +798,6 @@ class Onset(Event):
 
             # Attach the figure to class attribute even if not saving the figure
             self.fig, self.ax = fig, ax
-
-            # fig.savefig(fname=f"{savepath}{os.sep}{fname}",
-            #                 facecolor="white", transparent=False, bbox_inches="tight")
 
             # Run additional diagnostic tools -> Add two subplots displaying the z-standardized intensity
             # time series (with k) and a heatmap displaying k as a function of bg mu and sigma.
@@ -1447,6 +1455,9 @@ class Onset(Event):
         # make sure thta native resolution information exists
         if self.native_resolution is None:
             self.native_resolution = get_time_reso(flux_series)
+
+        # Make sure no negative values in the series
+        flux_series = delete_negatives(series=flux_series)
 
         # Create a timedelta representation of resample, for convenience
         resample_td = pd.Timedelta(resample)
@@ -4294,7 +4305,7 @@ def calculate_mean_and_std(start, end, flux_series):
 
 def erase_glitches(series, glitch_threshold, time_barr):
     """
-    Every value above glitch_threshold before time_barr will be replace with nan.
+    Every value above glitch_threshold before time_barr will get replaced with nan.
     Also return the erased values in a series called "glitches", in case we need them for something, e.g. plotting.
 
     Parameters:
@@ -4323,6 +4334,13 @@ def erase_glitches(series, glitch_threshold, time_barr):
     series2 = series.where((series.values < glitch_threshold) | (series.index >= time_barr))
 
     return series2, glitches
+
+
+def delete_negatives(series:pd.Series) -> pd.Series:
+    """
+    Sets all values < 0 to nan
+    """
+    return series.where(series.values > 0.)
 
 # ============================================================================
 
