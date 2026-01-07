@@ -8,7 +8,7 @@ A library that holds the Onset class for PyOnset.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2025-12-02
+@Updated: 2026-01-07
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -618,15 +618,9 @@ class Onset(Event):
         else:
             glitches = None
 
-        print(flux_series.idxmin(), flux_series.min())
-        print(flux_series.idxmax(), flux_series.max())
-
         # Resample data if requested
         if resample is not None:
             flux_series = util.resample_df(flux_series, resample)
-
-        print(flux_series.idxmin(), flux_series.min())
-        print(flux_series.idxmax(), flux_series.max())
 
         # Here just to make sure, check that the flux series is cut correctly
         if len(flux_series) == 0:
