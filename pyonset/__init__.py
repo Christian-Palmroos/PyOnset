@@ -604,11 +604,9 @@ class Onset(Event):
 
             self.last_used_channel = channels
 
-        # Save the native resolution to .07a class attribute.
+        # Save the native resolution to a class attribute.
         self.native_resolution = get_time_reso(series=flux_series)
 
-        print(flux_series.idxmin(), flux_series.min())
-        print(flux_series.idxmax(), flux_series.max())
         # Before doing anything with the data, make sure that there are no negative intensity values there
         flux_series = delete_negatives(series=flux_series)
 
@@ -4334,7 +4332,7 @@ def delete_negatives(series:pd.Series) -> pd.Series:
     """
     Sets all values < 0 to nan
     """
-    return series.where(series.values > 0.)
+    return series.copy(deep=True).where(series.values >= 0.)
 
 # ============================================================================
 
