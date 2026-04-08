@@ -3853,6 +3853,12 @@ class Onset(Event):
         except UnboundLocalError:
             inverse_betas = np.array([const.c.value/v for v in self.calculate_particle_speeds_custom()])
 
+        if len(tsa_timestamps) != len(inverse_betas):
+            print(f"len(tsa_timestamps): {len(tsa_timestamps)}")
+            print(f"len(inverse_betas): {len(inverse_betas)}")
+            print("This can not be plotted")
+            return tsa_timestamps, inverse_betas
+
         if self.species.lower() in ELECTRON_IDENTIFIERS:
             species_title = "electrons"
             m_species = const.m_e.value
@@ -3893,7 +3899,7 @@ class Onset(Event):
         # Stupid check and not general in its nature, but solo first channel is unavailable
         # so leave it out here
         # Actually this should NOT be done! Instead, channel 0 should be initialized with NaT onset time.
-        # This is automatically being done by Onset.onset_statistics_per_channel() is channel="all".
+        # This is automatically being done by Onset.onset_statistics_per_channel() if channel="all".
         # if self.spacecraft.lower()=="solo" and self.sensor=="ept":
         #     inverse_betas = inverse_betas[1:]
 
@@ -3902,8 +3908,11 @@ class Onset(Event):
 
         # tsa_timestamps is a dictionary, so remember to only get the values for plotting
         #tsa_ax.scatter(inverse_betas, tsa_timestamps.values(), s=135)
-        tsa_ax.errorbar(inverse_betas, tsa_timestamps,
-                        yerr=[plus_errs, minus_errs], xerr=[xerrs_upper, xerrs_lower],
+        # In ax.errorbar() xerr looks as if it's the wrong way, but actually since 1/\beta
+        # is the x-axis, the upper limit corresponds to a SMALLER 1/\beta.
+        # return tsa_timestamps, inverse_betas, [minus_errs, plus_errs], [xerrs_upper, xerrs_lower]
+        tsa_ax.errorbar(inverse_betas, tsa_timestamps.values(),
+                        yerr=[minus_errs, plus_errs], xerr=[xerrs_upper, xerrs_lower],
                         fmt='o', elinewidth=2.2, capsize=6.0)
 
         tsa_ax.set_title(f"{self.spacecraft.upper()} / {self.sensor.upper()} {species_str} TSA", fontsize=TITLE_FONTSIZE)
