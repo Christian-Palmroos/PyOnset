@@ -3852,8 +3852,10 @@ class Onset(Event):
 
         # Stupid check and not general in its nature, but solo first channel is unavailable
         # so leave it out here
-        if self.spacecraft.lower()=="solo" and self.sensor=="ept":
-            inverse_betas = inverse_betas[1:]
+        # Actually this should NOT be done! Instead, channel 0 should be initialized with NaT onset time.
+        # This is automatically being done by Onset.onset_statistics_per_channel() is channel="all".
+        # if self.spacecraft.lower()=="solo" and self.sensor=="ept":
+        #     inverse_betas = inverse_betas[1:]
 
         # Init the figure
         tsa_fig, tsa_ax = plt.subplots(figsize=STANDARD_FIGSIZE)
