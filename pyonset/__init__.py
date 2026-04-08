@@ -3903,7 +3903,8 @@ class Onset(Event):
         # tsa_timestamps is a dictionary, so remember to only get the values for plotting
         #tsa_ax.scatter(inverse_betas, tsa_timestamps.values(), s=135)
         tsa_ax.errorbar(inverse_betas, tsa_timestamps,
-                        yerr=[plus_errs, minus_errs], xerr=[xerrs_upper, xerrs_lower])
+                        yerr=[plus_errs, minus_errs], xerr=[xerrs_upper, xerrs_lower],
+                        fmt='o', elinewidth=2.2, capsize=6.0)
 
         tsa_ax.set_title(f"{self.spacecraft.upper()} / {self.sensor.upper()} {species_str} TSA", fontsize=TITLE_FONTSIZE)
 
