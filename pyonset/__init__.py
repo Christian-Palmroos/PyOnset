@@ -3800,8 +3800,9 @@ class Onset(Event):
         return tsa_times
 
 
-    def tsa_scatter_plot(self, radial_distance=None, path_length=None, solar_wind_speed=400, ylim=None, 
-                 plot=True, save=False, savepath=None, onset_times=None):
+    def tsa_scatter_plot(self, radial_distance=None, path_length=None, 
+                         solar_wind_speed=400, ylim=None, plot=True, save=False, 
+                         savepath=None, onset_times=None, ref_idx=0):
         """
         Applies tsa on all channels, and produces a scatter plot.
 
@@ -3823,6 +3824,8 @@ class Onset(Event):
         savepath : {str} A path to save the plot, if the parameter <save> is enabled.
 
         onset_times : {dict} User-input onset times. If not give, default to using self.onset_statistics
+
+        ref_idx : {int} 0 or 1. Default = 0. Chooses between mode and median onset time from the hybrid method.
 
         Returns:
         --------
@@ -3850,6 +3853,43 @@ class Onset(Event):
         except UnboundLocalError:
             inverse_betas = np.array([const.c.value/v for v in self.calculate_particle_speeds_custom()])
 
+        if self.species.lower() in ELECTRON_IDENTIFIERS:
+            species_title = "electrons"
+            m_species = const.m_e.value
+        elif self.species.lower() in ("ion", 'i', 'h'):
+            species_title = "ions"
+            m_species = const.m_p.value
+        elif self.species.lower() in ("protons", "proton", 'p'):
+            species_title = "protons"
+            m_species = const.m_p.value
+        else:
+            raise Exception(f"Particle species '{self.species}' does not appear to be any of the recognized species!")
+
+        # E=mc^2, a fundamental property of an object with mass
+        mass_energy = m_species*C_SQUARED # ~511 keV for electrons
+
+         # Get the energies of each energy channel, to calculate the mean energy of particles and ultimately
+        # to get the dimensionless speeds of the particles (v/c = beta).
+        # These methods return the lower and higher energy bounds in *electron volts*
+        if self.spacecraft in SEPPY_SPACECRAFT and not self.custom_data:
+            e_min, e_max = self.get_channel_energy_values()
+        else:
+            e_min, e_max = self.get_custom_channel_energies()
+
+        # Uncertainty in energy (x-axis)
+        xerrs_lower, xerrs_upper, _ = get_x_errors(e_min=e_min, e_max=e_max, inverse_betas=inverse_betas, mass_energy=mass_energy)
+
+        # Temporal uncertainty:
+        # self.onset_statistics : {channel_id : [mode, median, 1st_sigma_minus, 1st_sigma_plus, 2nd_sigma_minus, 2nd_sigma_plus]}
+        plus_errs, minus_errs = np.array([]), np.array([])
+        for channel in self.onset_statistics:
+
+            plus_err = self.onset_statistics[channel][5] - self.onset_statistics[channel][ref_idx]
+            minus_err = self.onset_statistics[channel][ref_idx] - self.onset_statistics[channel][4]
+
+            plus_errs = np.append(plus_errs, plus_err)
+            minus_errs = np.append(minus_errs, minus_err)
+
         # Stupid check and not general in its nature, but solo first channel is unavailable
         # so leave it out here
         # Actually this should NOT be done! Instead, channel 0 should be initialized with NaT onset time.
@@ -3861,7 +3901,9 @@ class Onset(Event):
         tsa_fig, tsa_ax = plt.subplots(figsize=STANDARD_FIGSIZE)
 
         # tsa_timestamps is a dictionary, so remember to only get the values for plotting
-        tsa_ax.scatter(inverse_betas, tsa_timestamps.values(), s=135)
+        #tsa_ax.scatter(inverse_betas, tsa_timestamps.values(), s=135)
+        tsa_ax.errorbar(inverse_betas, tsa_timestamps,
+                        yerr=[plus_errs, minus_errs], xerr=[xerrs_upper, xerrs_lower])
 
         tsa_ax.set_title(f"{self.spacecraft.upper()} / {self.sensor.upper()} {species_str} TSA", fontsize=TITLE_FONTSIZE)
 
