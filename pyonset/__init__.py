@@ -4471,7 +4471,7 @@ def onset_determination(ma_sigma, flux_series, cusum_window, avg_end, sigma_mult
         # During gaps alert signals are not modified, i.e., not incremented nor set to zero. Also the
         # cusum function stays constant.
         # In addition, the current nan streak IS incremented.
-        if np.isnan(norm_channel[i]):
+        if np.isnan(norm_channel.iloc[i]):
             cusum[i] = cusum[i-1]
             current_nan_streak += 1
             continue
