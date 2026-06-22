@@ -4477,7 +4477,7 @@ def onset_determination(ma_sigma, flux_series, cusum_window, avg_end, sigma_mult
             continue
 
         # Calculate the value for the next cusum entry
-        cusum[i] = max(0, norm_channel[i] - k_round + cusum[i-1])
+        cusum[i] = max(0, norm_channel.iloc[i] - k_round + cusum[i-1])
 
         # Check if cusum[i] is above threshold h, if it is -> increment alert
         if cusum[i]>h:
