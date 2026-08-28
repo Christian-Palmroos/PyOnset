@@ -8,7 +8,7 @@ A library that holds the Onset class for PyOnset.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2026-01-07
+@Updated: 2026-08-28
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -69,8 +69,8 @@ __author__ = "Christian Palmroos"
 __email__ = "chospa@utu.fi"
 
 # Some useful global constants
-CURRENT_PATH = os.getcwd()
-C_SQUARED = const.c.value*const.c.value
+CURRENT_PATH: str = os.getcwd()
+C_SQUARED: float = const.c.value*const.c.value
 
 ELECTRON_IDENTIFIERS = ("electrons", "electron", 'e')
 PROTON_IDENTIFIERS = ("protons", "proton", "ions", "ion", 'p', 'i', 'H')
@@ -101,15 +101,17 @@ NEWLINE = "\n"
 class Onset(Event):
 
     def __init__(self, start_date, end_date, spacecraft, sensor, species, data_level, data_path, viewing=None, radio_spacecraft=None, threshold=None,
-                 data=None, unit=None):
+                 data=None, unit=None, offline:bool=False):
 
         # By default we download data, not provide it
         if data is None:
-            super().__init__(start_date, end_date, spacecraft, sensor,
-                    species, data_level, data_path, viewing, radio_spacecraft,
-                    threshold)
-            self.custom_data = False
-            self.unit = r"Intensity [1/(cm$^{2}$ sr s MeV)]" if unit is None else unit
+            super().__init__(start_date=start_date, end_date=end_date, spacecraft=spacecraft, 
+                             sensor=sensor, species=species, data_level=data_level, 
+                             data_path=data_path, viewing=viewing, radio_spacecraft=radio_spacecraft,
+                             threshold=threshold, offline=offline)
+
+            self.custom_data: bool = False
+            self.unit: str = r"Intensity [1/(cm$^{2}$ sr s MeV)]" if unit is None else unit
 
             # Check here that the spacecraft and instrument are SEPpy-compatible.
             # to provide the custom data.
@@ -153,13 +155,13 @@ class Onset(Event):
             self.data = data.copy(deep=True)
             self.current_df_e = self.data
             self.current_df_i = self.current_df_e
-            self.unit = r"Intensity [1/(cm$^{2}$ sr s MeV)]" if unit is None else unit
+            self.unit: str = r"Intensity [1/(cm$^{2}$ sr s MeV)]" if unit is None else unit
 
             # Custom data flag prevents SEPpy functions from being called, as they would cause errors
-            self.custom_data = True
+            self.custom_data: bool = True
 
             # The channel energy dictionary maps channel names to channel energies
-            self.channel_en_dict = None
+            self.channel_en_dict: dict = None
 
             # Lets the user know that the object is initialized with custom settings
             print("Utilizing user-input data. Some SEPpy functionality may not work as intended.")
@@ -289,7 +291,7 @@ class Onset(Event):
         if returns:
             return self.viewing
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(f"({self.spacecraft},{self.sensor},{self.species})")
 
     def get_all_channels(self):
