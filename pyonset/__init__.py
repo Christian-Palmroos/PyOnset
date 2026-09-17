@@ -8,7 +8,7 @@ A library that holds the Onset class for PyOnset.
 
 @Author: Christian Palmroos <chospa@utu.fi>
 
-@Updated: 2026-08-28
+@Updated: 2026-09-17
 
 Known problems/bugs:
     > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
@@ -81,7 +81,7 @@ SEPPY_SENSORS = {"sta" : ("sept", "het"),
                  "solo" : ("ept", "het"),
                  "psp" : ("isois_epilo", "isois_epihi"),
                  "wind" : ("3dp"),
-                 "soho" : ("erne-hed", "ephin"),
+                 "soho" : ("erne-hed", "ephin", "ephin_l3"),
                  "bepi" : ("sixs-p")
                  }
 
