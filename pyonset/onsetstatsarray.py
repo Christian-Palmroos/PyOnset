@@ -723,8 +723,10 @@ class OnsetStatsArray:
         # Loop through each archive individually
         for i, stats in enumerate(self.archive):
 
-            # Fetch onset list
-            onsets = pd.DatetimeIndex(stats["onset_list"])
+            # Fetch the onset list, and specify dtype as datetime64[ns], because
+            # for some data the dtype may be datetime64[us], which will cause problems in
+            # calculations later as the assumption is we're working with nanoseconds.
+            onsets = pd.DatetimeIndex(stats["onset_list"], dtype="datetime64[ns]")
 
             # Convert to nanoseconds, because variance can NOT be calculated for
             # datetime type objects

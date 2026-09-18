@@ -28,7 +28,7 @@ def weight_timestamp(weights:list, timestamps:list):
         return pd.NaT
 
     # First make sure timestamps come numpy datetime64 format (in nanoseconds)
-    timestamps = np.array([t.asm8 for t in timestamps])
+    timestamps = np.array([t.to_datetime64() for t in timestamps], dtype="datetime64[ns]")
 
     # Mask the weights and timestamps that contain nans/NaTs with these indices
     mask = ~np.isnan(timestamps)
@@ -293,3 +293,28 @@ def find_biggest_nonzero_unit(timedelta):
     if minutes != 0:
         return "min"
     return 's'
+
+
+def validate_index_dtype(flux_series: pd.Series) -> pd.Series:
+    """
+    Validates that the dtype of flux_series index is datetime64[ns]. 
+    If not, it tries to convert it to datetime64[ns].
+
+    Parameters:
+    -----------
+    flux_series : {pd.Series}
+        The input series whose index dtype needs to be validated.
+    
+    Returns:
+    --------
+    flux_series : {pd.Series}
+        The input series with index dtype validated or converted to datetime64[ns].
+    """
+
+    if not flux_series.index.dtype == np.dtype("datetime64[ns]"):
+        try:
+            flux_series.index = flux_series.index.as_unit("ns")
+        except Exception as e:
+            raise ValueError(f"Could not convert index to datetime64[ns]: {e}")
+
+    return flux_series

@@ -58,7 +58,7 @@ from .onsetstatsarray import OnsetStatsArray
 
 from .datetime_utilities import datetime_to_sec, datetime_nanmedian, detrend_onsets, \
                                 get_time_reso, calculate_cusum_window, find_biggest_nonzero_unit, \
-                                get_figdate, check_confidence_intervals
+                                get_figdate, check_confidence_intervals, validate_index_dtype
 
 from .calc_utilities import z_score, sigma_norm, k_parameter, k_legacy, k_classic
 from .plot_utilities import set_fig_ylimits, set_standard_ticks, set_legend, max_averaging_reso_textbox, save_figure, \
@@ -76,7 +76,7 @@ ELECTRON_IDENTIFIERS = ("electrons", "electron", 'e')
 PROTON_IDENTIFIERS = ("protons", "proton", "ions", "ion", 'p', 'i', 'H')
 
 SEPPY_SPACECRAFT = ("sta", "stb", "solo", "psp", "wind", "soho", "bepi")
-SEPPY_SENSORS = {"sta" : ("sept", "het"),
+SEPPY_SENSORS: dict[str, tuple[str]] = {"sta" : ("sept", "het"),
                  "stb" : ("sept", "het"),
                  "solo" : ("ept", "het"),
                  "psp" : ("isois_epilo", "isois_epihi"),
@@ -226,6 +226,7 @@ class Onset(Event):
             "solo_het_p" : np.arange(36, dtype=int),
 
             "soho_ephin_e" : (150, 300, 1300, 3000),
+            "soho_ephin_l3_e" : np.arange(15, dtype=int),
             "soho_erne_p" : np.arange(10, dtype=int),
 
             "wind_3dp_e" : np.arange(7, dtype=int),
@@ -562,7 +563,7 @@ class Onset(Event):
         if viewing and not self.check_viewing(returns=True):
             raise ValueError("Invalid viewing direction!")
 
-        color_dict = {
+        color_dict: dict[str, str] = {
             'onset_time': '#e41a1c',
             'bg_mean': '#e41a1c',
             'flux_peak': '#1a1682',
@@ -605,6 +606,9 @@ class Onset(Event):
                 en_channel_string = channels
 
             self.last_used_channel = channels
+
+        # Validate the series index dtype (has to be ns accuracy)
+        flux_series = validate_index_dtype(flux_series=flux_series)
 
         # Save the native resolution to a class attribute.
         self.native_resolution = get_time_reso(series=flux_series)
@@ -1955,8 +1959,8 @@ class Onset(Event):
                                                  sensor='HET')
 
                 if self.sensor == 'ephin':
-                    # convert single-element "channels" list to integer
-                    if type(channels) == list:
+                    # Convert single-element "channels" list to integer
+                    if isinstance(channels, list):
                         if len(channels) == 1:
                             channels = channels[0]
                         else:
@@ -1965,6 +1969,18 @@ class Onset(Event):
                         energy_labels_key = "energy_labels"
                         df_flux = self.current_df_e[f'E{channels}']
                         en_channel_string = self.current_energies[energy_labels_key][f"E{channels}"]
+
+                if self.sensor == "ephin_l3":
+                    # Convert single-element "channels" list to integer
+                    if isinstance(channels, list):
+                        if len(channels) == 1:
+                            channels = channels[0]
+                        else:
+                            raise NotImplementedError("No multi-channel support for SOHO/EPHIN L3 included yet! Select only one single channel.")
+
+                    energy_labels_key = "Electron_ENERGY_LABL"
+                    df_flux = self.current_df_e[f"E{channels}"]
+                    en_channel_string = self.current_energies[energy_labels_key][channels]
 
             except KeyError:
                 raise Exception(f"{channels} is an invalid channel or a combination of channels!")
