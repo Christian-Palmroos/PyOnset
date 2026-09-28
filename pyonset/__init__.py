@@ -2733,7 +2733,7 @@ class Onset(Event):
             if not isinstance(yerrs, (list, np.ndarray)):
 
                 plus_errs, minus_errs = np.array([]), np.array([])
-                # Loop through all possible, channels, even those that not necessarily show an onset
+                # Loop through all possible channels, even those that not necessarily show an onset
                 for ch in channels:
 
                     try: 
@@ -3324,14 +3324,16 @@ class Onset(Event):
 
                 if stop_int > 0:
                     if prints:
-                        print(f"Averaging up to {stop_int} minutes")
+                        print(f"Averaging from {self.native_resolution} up to {stop_int} minutes")
 
                 # SolO instruments and Wind/3DP have high cadence (< 1 min), so start integrating from 1 minute measurements
                     # unless limit_computation_time is enabled
                 if self.spacecraft in FINE_CADENCE_SC and not limit_computation_time:
                     int_times = np.array([i for i in range(1,stop_int+1)])
                 else:
-                    int_times = np.array([i for i in range(2,stop_int+1)])
+                    start_int = pd.Timedelta(self.native_resolution).seconds//60 + 1
+                    int_times = np.array([i for i in range(start_int,stop_int+1)])
+                    upto_averaging_display = stop_int
 
         # Go here if no onset found at all
         else:
@@ -3339,50 +3341,54 @@ class Onset(Event):
             if self.spacecraft in FINE_CADENCE_SC and not limit_computation_time:
                 try_avg_start = 1
             else:
-                try_avg_start = 2
-            try_avg_stop = 5 if not isinstance(fail_avg_stop,int) else fail_avg_stop
+                try_avg_start: int = pd.Timedelta(self.native_resolution).seconds//60 + 1
+            try_avg_stop: int = try_avg_start+3 if not isinstance(fail_avg_stop,int) else fail_avg_stop
 
-            # Try up to {try_avg_stop} minutes averaging (default 5), if still no onset -> give up
-            for i in range(try_avg_start,try_avg_stop+1):
+            try_avgs: list[str] = [f"{i} min" for i in range(try_avg_start,try_avg_stop+1)]
+
+            # Try up to {try_avg_stop} minutes averaging (default=5 with 1-minute data), if still no onset -> give up
+            for try_averaging in try_avgs:
+
+                try_avg_minutes: int = pd.Timedelta(try_averaging).seconds//60
 
                 next_run_stats, _ = self.statistic_onset(channels=channels, Window=background, viewing=viewing, 
-                                            sample_size=sample_size, resample=f"{i}min", erase=erase, small_windows=small_windows,
+                                            sample_size=sample_size, resample=try_averaging, erase=erase, small_windows=small_windows,
                                             cusum_minutes=cusum_minutes, sigma_multiplier=sigma_multiplier, detrend=True, k_model=k_model)
-                next_run_uncertainty = next_run_stats["1-sigma_confidence_interval"][1] - next_run_stats["1-sigma_confidence_interval"][0]
+                next_run_uncertainty: pd.Timedelta = next_run_stats["1-sigma_confidence_interval"][1] - next_run_stats["1-sigma_confidence_interval"][0]
 
                 try:
                     next_run_uncertainty_mins = int(np.round((next_run_stats["1-sigma_confidence_interval"][1] - next_run_stats["1-sigma_confidence_interval"][0]).seconds / 60))
                 except ValueError as e:
                     print(e)
                     print("This is caused by failing to identify the onset despite additional time-averaging.")
-                    if i < try_avg_stop:
+                    if pd.Timedelta(try_averaging) < pd.Timedelta(try_avgs[-1]):
                         continue
 
                 if not isinstance(next_run_uncertainty, pd._libs.tslibs.nattype.NaTType):
                     if prints:
-                        print(f"No onset found in the native data resolution. ~68 % uncertainty with {i} min resolution: {next_run_uncertainty}")
+                        print(f"No onset found in the native data resolution. ~68 % uncertainty with {try_averaging} resolution: {next_run_uncertainty}")
 
                     # Here check if it makes sense to average "from i minutes to <uncertainty> minutes or up to "stop" minutes
                     if stop:
 
-                        if i < stop_int:
-                            int_times = np.array([j for j in range(i,stop_int+1)])
+                        if pd.Timedelta(try_averaging) < pd.Timedelta(try_avgs[-1]):
+                            int_times = np.array([j for j in range(try_avg_minutes,stop_int+1)])
                             if prints:
-                                print(f"Averaging from {i} minutes up to {stop_int} minutes")
+                                print(f"Averaging from {try_averaging} up to {try_avgs[-1]}")
                         else:
                             if prints:
-                                print(f"Stop condition set to {stop_int} minutes, which is less than {i} min. Using only {i} minutes averaged data.")
-                            int_times = np.array([j for j in range(i,i+1)])
+                                print(f"Stop condition set to {stop_int} minutes, which is less than {try_averaging}. Using only {try_averaging} averaged data.")
+                            int_times = np.array([j for j in range(try_avg_minutes,try_avg_minutes+1)])
 
-                    elif i < next_run_uncertainty_mins:
-                        int_times = np.array([j for j in range(i,next_run_uncertainty_mins+1)])
+                    elif pd.Timedelta(try_averaging) < next_run_uncertainty:
+                        int_times = np.array([j for j in range(try_avg_minutes,next_run_uncertainty_mins+1)])
                         if prints:
                             if limit_averaging:
                                 upto_averaging_display = limit_averaging_int if limit_averaging_int < next_run_uncertainty_mins else next_run_uncertainty_mins
                             else:
                                 upto_averaging_display = next_run_uncertainty_mins
 
-                            print(f"Averaging from {i} minutes up to {upto_averaging_display} minutes")
+                            print(f"Averaging from {try_averaging} up to {upto_averaging_display} minutes")
 
                     # No onset was found with any time averaging
                     else:
@@ -3398,9 +3404,9 @@ class Onset(Event):
 
                 else:
                     # If we tried everything and still no onset -> NaT and exit
-                    if i==try_avg_stop:
+                    if try_averaging==try_avgs[-1]:
                         if prints:
-                            print(f"No onsets found with 1 min ... {i} min time averaging. Terminating.")
+                            print(f"No onsets found with {try_avgs[0]} ... {try_averaging} time averaging. Terminating.")
                         self.max_avg_times[channels] = pd.NaT
                         stats_arr.calculate_weighted_uncertainty("int_time")
                         return stats_arr
@@ -3418,7 +3424,7 @@ class Onset(Event):
             int_times = int_times[np.where(int_times <= limit_averaging_int)]
 
         # Finally convert int_times (integers) to pandas-compatible time strs
-        int_time_strs = produce_integration_times(int_time_ints=int_times, limit_averaging=limit_averaging, stop=stop)           
+        int_time_strs: list[str] = produce_integration_times(int_time_ints=int_times, limit_averaging=limit_averaging, stop=stop)           
 
         # Loop through int_times as far as the first run uncertainty reaches
         for resample in int_time_strs:
