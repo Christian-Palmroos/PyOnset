@@ -3239,7 +3239,7 @@ class Onset(Event):
             unit_of_time = find_biggest_nonzero_unit(timedelta=pd.Timedelta(limit_averaging))
 
         # SolO/EPT first channel does not provide proper data as of late
-        if self.spacecraft=="solo" and self.sensor=="ept" and channels==0:
+        if self.spacecraft=="solo" and self.sensor=="ept" and channels==0 and self.data_level=="l2":
             self.input_nat_onset_stats(channels)
             return  None
 
