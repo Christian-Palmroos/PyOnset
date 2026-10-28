@@ -613,10 +613,14 @@ class Onset(Event):
         flux_series = validate_index_dtype(flux_series=flux_series)
 
         # Save the native resolution to a class attribute.
-        self.native_resolution = get_time_reso(series=flux_series)
+        self.native_resolution: str = get_time_reso(series=flux_series)
 
-        # Before doing anything with the data, make sure that there are no negative intensity values there
-        flux_series = delete_negatives(series=flux_series)
+        # Before doing anything with the data, make sure that there are no negative intensity values there.
+        # Thus far the only exception to this rule is SolO/EPT lvl3 data product, which is known to have negative values
+        # that we actually want to preserve in the data further.
+        # This is only skipped if spacecraft==solo and data_level==l3
+        if self.spacecraft.lower() != "solo" or self.data_level.lower() != "l3":
+            flux_series: pd.Series = delete_negatives(series=flux_series)
 
         # Glitches from the data should really be erased BEFORE resampling data
         if erase is not None:
@@ -626,7 +630,7 @@ class Onset(Event):
 
         # Resample data if requested
         if resample is not None:
-            flux_series = util.resample_df(flux_series, resample)
+            flux_series: pd.Series = util.resample_df(flux_series, resample)
 
         # Here just to make sure, check that the flux series is cut correctly
         if len(flux_series) == 0:
