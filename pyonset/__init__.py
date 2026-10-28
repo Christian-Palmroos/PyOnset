@@ -1,4 +1,6 @@
 
+from pandas import Series
+
 from .version import version as __version__
 
 # __all__ = []  # defines which functions, variables etc. will be loaded when running "from pyonset import *"
@@ -50,7 +52,7 @@ from seppy.loader.soho import calc_av_en_flux_ERNE, soho_load
 from seppy.loader.stereo import calc_av_en_flux_HET as calc_av_en_flux_ST_HET
 from seppy.loader.stereo import calc_av_en_flux_SEPT, stereo_load
 from seppy.util import calc_av_en_flux_sixs
-from seppy.tools import Event
+from seppy.tools import Event, SOLO_L3_VIEWINGS
 
 # Local import
 from .bootstrapwindow import BootstrapWindow, subwindows
@@ -1878,7 +1880,7 @@ class Onset(Event):
         """
 
         self.choose_data(viewing)
-        
+
         if (self.spacecraft[:2].lower() == 'st' and self.sensor == 'sept') \
                 or (self.spacecraft.lower() == 'psp' and self.sensor.startswith('isois')) \
                 or (self.spacecraft.lower() == 'solo' and self.sensor == 'ept') \
@@ -1897,9 +1899,26 @@ class Onset(Event):
         if self.spacecraft == 'solo':
 
                 if self.species in ELECTRON_IDENTIFIERS:
-                    df_flux, en_channel_string = solo_epd_combine_channels(self.current_df_e, self.current_energies, channels, sensor=self.sensor.upper())
+
+                    # Level 2 data may be handled with combine_channels(), but level 3
+                    # data is not compatible with that function yet
+                    if self.data_level=="l2":
+                        df_flux, en_channel_string = solo_epd_combine_channels(self.current_df_e, self.current_energies, channels, sensor=self.sensor.upper())
+                    else:
+                        if len(channels) > 1:
+                            raise NotImplementedError("No multi-channel support for SOLO/EPD L3 included yet! Select only one single channel.")
+                        channel_id = f"Electron_Corrected_Flux_{SOLO_L3_VIEWINGS.get(viewing)}_{channels[0]}"
+                        df_flux: pd.Series = self.current_df_e[channel_id]
+                        en_channel_string: str = self.current_energies["Electron_Bins_Text"][channels][0]
                 else:
-                    df_flux, en_channel_string = solo_epd_combine_channels(self.current_df_i, self.current_energies, channels, sensor=self.sensor.upper())
+                    if self.data_level=="l2":
+                        df_flux, en_channel_string = solo_epd_combine_channels(self.current_df_i, self.current_energies, channels, sensor=self.sensor.upper())
+                    else:
+                        if len(channels) > 1:
+                            raise NotImplementedError("No multi-channel support for SOLO/EPD L3 included yet! Select only one single channel.")
+                        channel_id = f"Ion_Flux_{SOLO_L3_VIEWINGS.get(viewing)}_{channels[0]}"
+                        df_flux: pd.Series = self.current_df_i[channel_id]
+                        en_channel_string: str = self.current_energies["Ion_Bins_Text"][channels][0]
 
         if self.spacecraft[:2] == 'st':
 
