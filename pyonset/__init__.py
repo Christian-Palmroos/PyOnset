@@ -1460,8 +1460,12 @@ class Onset(Event):
         if self.native_resolution is None:
             self.native_resolution = get_time_reso(flux_series)
 
-        # Make sure no negative values in the series
-        flux_series = delete_negatives(series=flux_series)
+        # Before doing anything with the data, make sure that there are no negative intensity values there.
+        # Thus far the only exception to this rule is SolO/EPT lvl3 data product, which is known to have negative values
+        # that we actually want to preserve in the data further.
+        # This is only skipped if spacecraft==solo and data_level==l3
+        if self.spacecraft.lower() != "solo" or self.data_level.lower() != "l3":
+            flux_series: pd.Series = delete_negatives(series=flux_series)
 
         # Create a timedelta representation of resample, for convenience
         resample_td = pd.Timedelta(resample)
