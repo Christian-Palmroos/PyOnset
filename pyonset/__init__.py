@@ -1,20 +1,12 @@
-
-from pandas import Series
-
-from .version import version as __version__
-
 # __all__ = []  # defines which functions, variables etc. will be loaded when running "from pyonset import *"
 
 """
 A library that holds the Onset class for PyOnset.
 
 @Author: Christian Palmroos <chospa@utu.fi>
-
-@Updated: 2026-09-17
-
-Known problems/bugs:
-    > Does not work with SolO/STEP due to electron and proton channels not defined in all_channels() -method
 """
+
+from .version import version as __version__
 
 # For checking Python version
 import sys
