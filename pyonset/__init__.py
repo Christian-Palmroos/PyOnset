@@ -3578,6 +3578,9 @@ class Onset(Event):
         else:
             custom_data_dt = None
 
+        # Determine the maximum recommended averaging
+        background.determine_max_recommended_reso()
+
         if print_output:
             background.print_max_recommended_reso()
 
