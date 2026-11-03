@@ -49,6 +49,9 @@ class BootstrapWindow:
         self.mu = np.nan
         self.sigma = np.nan
 
+        # This turns True after the maximum recomended resolution has been determined with the class method
+        self.max_recommended_reso_is_determined = False
+
     def __repr__(self):
         return self.attrs()
 
@@ -254,18 +257,32 @@ class BootstrapWindow:
 
         return (ax, fig)
 
-    def print_max_recommended_reso(self):
+    def determine_max_recommended_reso(self) -> None:
+        """
+        Sets the maximum recommended resolution that the time series should be averaged to in order to still have
+        at least {MIN_RECOMMENDED_POINTS} data points inside the background window.
+        """
+
+        # The amount of full minutes in the background selection at the time of running this method
+        minutes_in_background: int = len(self)
+
+        # Save the recommended max resolution to this class attribute
+        self.max_recommended_reso = int(minutes_in_background/MIN_RECOMMENDED_POINTS)
+
+        # A flag to show this has been determined
+        self.max_recommended_reso_is_determined = True
+
+    def print_max_recommended_reso(self) -> None:
         """
         Prints out the maximum recommended resolution that the time series should be averaged to in order to still have
         at least {MIN_RECOMMENDED_POINTS} data points inside the background window.
         """
 
-        minutes_in_background = len(self)
-
-        # We recommend a maximum reso such that there are at least {MIN_RECOMMENDED_POINTS} data points to pick from
-        self.max_recommended_reso = int(minutes_in_background/MIN_RECOMMENDED_POINTS)
-        print(f"Your chosen background is {minutes_in_background} minutes long. To preserve the minimum of {MIN_RECOMMENDED_POINTS} data points to choose from,\nit is recommended that you either limit averaging up to {self.max_recommended_reso} minutes or enlarge the background window.")
-
+        if self.max_recommended_reso_is_determined:
+            # We recommend a maximum reso such that there are at least {MIN_RECOMMENDED_POINTS} data points to pick from
+            print(f"Your chosen background is {len(self)} minutes long. To preserve the minimum of {MIN_RECOMMENDED_POINTS} data points to choose from,\nit is recommended that you either limit averaging up to {self.max_recommended_reso} minutes or enlarge the background window.")
+        else:
+            print("The maximum recommended resolution has not been determined yet. Run the method determine_max_recommended_reso() first.")
 
     def move_window(self, hours=0, minutes=0):
         """
