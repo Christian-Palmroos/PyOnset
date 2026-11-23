@@ -221,7 +221,7 @@ class Onset(Event):
 
             "soho_ephin_e" : (150, 300, 1300, 3000),
             "soho_ephin_l3_e" : np.arange(15, dtype=int),
-            "soho_erne_p" : np.arange(10, dtype=int),
+            "soho_erne_p" : np.arange(7, dtype=int),
 
             "wind_3dp_e" : np.arange(7, dtype=int),
             "wind_3dp_p" : np.arange(9, dtype=int),
