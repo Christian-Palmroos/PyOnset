@@ -2347,7 +2347,7 @@ class Onset(Event):
 
     def VDA(self, onset_times=None, Onset=None, energy:str='gmean', selection=None, 
             yerrs=None, reference:str="mode", title=None, ylim=None, plot=True, guess=None, save=False,
-            savepath=None, fname:str=None, grid=True, show_omitted=True):
+            savepath=None, fname:str=None, grid=True, show_omitted=True, odr_method:str="odrpack"):
         """
         Performs Velocity Dispersion Analysis.
 
@@ -2383,6 +2383,9 @@ class Onset(Event):
                     Boolean switch for gridlines.
         show_omitted : {bool} default True
                     A switch to show the data points omitted from the fit in the plot.
+        odr_method : {str}, default "odrpack"
+                    The method to use for the ODR fit. Options are "odrpack" (default) or "scipy". The latter is na 
+                    implementation of ODR soon to be deprecated.
 
         Returns:
         ---------
@@ -2395,8 +2398,6 @@ class Onset(Event):
         VDA_MARKERSIZE = 24
         VDA_ELINEWIDTH = 2.2
         VDA_CAPSIZE = 6.0
-
-        from scipy.stats import t as studentt
 
         import numpy.ma as ma
 
@@ -2881,25 +2882,40 @@ class Onset(Event):
         # consider the selection of them in the fit
         # The .compressed() -method here ensures that only the valid values of the masked arrays are fed into the function. If this is not
         # done, then all of the values that the function yields will be nan.
-        odr_output = seek_fit_and_errors(x=inverse_beta_corrected.compressed(), y=date_in_sec_all.compressed(), 
-                                        xerr=x_errors_all.compressed(), yerr=y_errors_all_secs.compressed(), guess=guess)
-        
-        # This would print out the output
-        # odr_output.pprint()
-        
+        if odr_method == "scipy":
+            from scipy.stats import t as studentt
+            odr_output = seek_fit_and_errors_scipy(x=inverse_beta_corrected.compressed(), y=date_in_sec_all.compressed(), 
+                                            xerr=x_errors_all.compressed(), yerr=y_errors_all_secs.compressed(), guess=guess)
+
+            dof: int = len(inverse_beta_corrected) - len(odr_output.beta) # degrees of freedom (number of data points minus number of free parameters)
+            t_val = studentt.interval(0.95, dof)[1] # 95 % confidence interval
+            errors = t_val * odr_output.sd_beta
+            slope_uncertainty = errors[0]
+
+            try:
+                t_inj_uncertainty = pd.Timedelta(seconds=int(errors[1]))
+            # Valueerror is caused by nan
+            except ValueError:
+                t_inj_uncertainty = np.nan
+            # This would print out the output
+            # odr_output.pprint()
+ 
+        elif odr_method == "odrpack":
+            # Merge the directional y-errors into a single array for odrpack
+            y_errors_all_secs_merged = ma.array([y[0]+y[1] for y in y_errors_all_secs.T], mask=mask)
+            # return inverse_beta_corrected, date_in_sec_all, x_errors_all, y_errors_all_secs, guess
+            odr_output = seek_fit_and_errors_odrpack(x=inverse_beta_corrected.compressed(),
+                                                                y=date_in_sec_all.compressed(),
+                                                                xerr=x_errors_all.compressed(),
+                                                                yerr=y_errors_all_secs_merged.compressed(),
+                                                                guess=guess)
+            slope_uncertainty = odr_output.sd_beta[0]
+            t_inj_uncertainty = pd.Timedelta(seconds=int(odr_output.sd_beta[1]))
+
+        else:
+            raise ValueError(f"Argument {odr_method} is an invalid input for the variable 'odr_method'. Acceptable input values are are 'odrpack' and 'scipy'.")
+
         slope, constant = odr_output.beta[0], odr_output.beta[1]
-        
-        dof = len(inverse_beta_corrected) - len(odr_output.beta) # degrees of freedom (number of data points minus number of free parameters)
-        t_val = studentt.interval(0.95, dof)[1] # 95 % confidence interval
-        errors = t_val * odr_output.sd_beta
-        slope_uncertainty = errors[0]
-
-        try:
-            t_inj_uncertainty = pd.Timedelta(seconds=int(errors[1]))
-
-        # Valueerror is caused by nan
-        except ValueError:
-            t_inj_uncertainty = np.nan
 
         # Residual variance
         residual_variance = odr_output.res_var
@@ -2908,10 +2924,10 @@ class Onset(Event):
         stopreason = odr_output.stopreason
 
         odr_fit_sec = inverse_beta_corrected*slope
-        odr_fit = np.array([datetime.datetime.utcfromtimestamp(sec + constant) for sec in odr_fit_sec.compressed()])
+        odr_fit = np.array([datetime.datetime.fromtimestamp(sec + constant, datetime.UTC) for sec in odr_fit_sec.compressed()])
 
         # Release time is the timestamp where the line intersects y-axis
-        release_time = datetime.datetime.utcfromtimestamp(constant)
+        release_time = datetime.datetime.fromtimestamp(constant, datetime.UTC)
 
         # Precision of t_inj display:
         precision = 5 if spacecraft not in FINE_CADENCE_SC else 8
@@ -4768,7 +4784,7 @@ def sc_distance(mag_data):
 
 #==============================================================================
 
-def seek_fit_and_errors(x,y,xerr,yerr, guess=None):
+def seek_fit_and_errors_scipy(x,y,xerr,yerr, guess=None):
     '''
     Seeks a fit and its errors by ODR (Orthogonal Distance Regression) 
     https://www.tutorialspoint.com/scipy/scipy_odr.htm
@@ -4815,6 +4831,48 @@ def seek_fit_and_errors(x,y,xerr,yerr, guess=None):
 
     return out
 
+
+def seek_fit_and_errors_odrpack(x,y,xerr,yerr, guess=None):
+    '''
+    Seeks a fit and its errors by ODR (Orthogonal Distance Regression) 
+    https://github.com/HugoMVale/odrpack-python
+    https://hugomvale.github.io/odrpack-python/
+
+    Parameters
+    -----------
+    x, y :  arrays
+            values for the x and y axes
+    xerr, yerr : array
+            errors of x and y, respectively
+    guess : {array-like, list, tuple} with len()==2, default None
+            The first guess values for the ODR fit.
+
+    Returns:
+    ----------
+    output : {OdrResult}
+            An object containing information of the fit and it's errors
+    '''
+
+    from odrpack import odr_fit
+
+    # Define a polynomial of rank 1 to fit the data with.
+    def linear_func(x, beta0):
+        slope, const = beta0
+        return slope*x + const
+
+    # Handle the errors:
+    weight_x = 1/xerr**2
+    weight_y = 1/yerr**2
+
+    if not guess:
+        slope0, const0 = 1.0, y[0]
+    else:
+        slope0, const0 = guess[0], datetime_to_sec([pd.to_datetime(guess[1])])[0]
+
+    # Produce the output
+    output = odr_fit(linear_func, x, y, beta0=[slope0, const0], weight_x=weight_x, weight_y=weight_y)
+
+    return output
 
 def event_params_to_csv(event_params:dict, filename:str) -> None:
     """
