@@ -2903,11 +2903,11 @@ class Onset(Event):
         elif odr_method == "odrpack":
             # Merge the directional y-errors into a single array for odrpack
             y_errors_all_secs_merged = ma.array([y[0]+y[1] for y in y_errors_all_secs.T], mask=mask)
-            # return inverse_beta_corrected, date_in_sec_all, x_errors_all, y_errors_all_secs, guess
+            # return inverse_beta_corrected, date_in_sec_all, x_errors_all[selection_all], y_errors_all_secs_merged[selection_all], guess
             odr_output = seek_fit_and_errors_odrpack(x=inverse_beta_corrected.compressed(),
                                                                 y=date_in_sec_all.compressed(),
-                                                                xerr=x_errors_all.compressed(),
-                                                                yerr=y_errors_all_secs_merged.compressed(),
+                                                                xerr=x_errors_all.compressed()[selection_all],
+                                                                yerr=y_errors_all_secs_merged.compressed()[selection_all],
                                                                 guess=guess)
             slope_uncertainty = odr_output.sd_beta[0]
             t_inj_uncertainty = pd.Timedelta(seconds=int(odr_output.sd_beta[1]))
