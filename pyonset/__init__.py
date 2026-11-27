@@ -19,7 +19,7 @@ import astropy.units as u
 import matplotlib.ticker as ticker
 import numpy as np
 import pandas as pd
-from scipy.odr import ODR, Model, RealData
+from odrpack import odr_fit
 from pandas.tseries.frequencies import to_offset
 from astropy import constants as const
 from matplotlib import pyplot as plt
@@ -4785,7 +4785,7 @@ def sc_distance(mag_data):
 #==============================================================================
 
 def seek_fit_and_errors_scipy(x,y,xerr,yerr, guess=None):
-    '''
+    """
     Seeks a fit and its errors by ODR (Orthogonal Distance Regression) 
     https://www.tutorialspoint.com/scipy/scipy_odr.htm
 
@@ -4802,7 +4802,9 @@ def seek_fit_and_errors_scipy(x,y,xerr,yerr, guess=None):
     ----------
     out : {ODR.regression}
             An object containing information of the fit and it's errors
-    '''
+    """
+
+    from scipy.odr import ODR, Model, RealData
 
     # Define a polynomial of rank 1 to fit the data with.
     def linear_func(p, x):
@@ -4852,8 +4854,6 @@ def seek_fit_and_errors_odrpack(x,y,xerr,yerr, guess=None):
     output : {OdrResult}
             An object containing information of the fit and it's errors
     '''
-
-    from odrpack import odr_fit
 
     # Define a polynomial of rank 1 to fit the data with.
     def linear_func(x, beta0):
