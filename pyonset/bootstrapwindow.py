@@ -89,6 +89,7 @@ class BootstrapWindow:
         blabel = AnchoredText(f"Background:\n{self.start} - {self.end}", prop=dict(size=TXTBOX_SIZE), frameon=True, loc="upper left")
         blabel.patch.set_boxstyle("round, pad=0., rounding_size=0.2")
         blabel.patch.set_linewidth(2.0)
+        blabel.patch.set_alpha((0.3))
         ax.add_artist(blabel)
 
     def poisson_comparison_figure(self, num_of_bins:int=None, seed:int=1) -> plt.Figure:
